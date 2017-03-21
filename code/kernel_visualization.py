@@ -137,17 +137,17 @@ W = numpy.squeeze(W) # leva la profondità di 1 per il bianco-nero # TODO
 pyplot.figure(figsize=(10, 10))
 pyplot.title('conv1 weights')
 nice_imshow(pyplot.gca(), OLD_make_mosaic(W, 4, 4), vmin=-0.5, vmax=0.5, cmap=matplotlib.cm.bwr) # TODO settando il bianco (o il verde) sullo 0
-pyplot.savefig('./images/kernel_visualization.svg')
+pyplot.savefig('./media/kernel_visualization.svg')
 pyplot.close()
 
 pyplot.hist(W.flatten(), bins=50)
 pyplot.title('conv1 weights distribution')
-pyplot.savefig('./images/weights_distribution.svg')
+pyplot.savefig('./media/weights_distribution.svg')
 pyplot.close()
 
 pyplot.hist(b, bins=50)
 pyplot.title('conv1 bias distribution')
-pyplot.savefig('./images/bias_distribution.svg')
+pyplot.savefig('./media/bias_distribution.svg')
 pyplot.close()
 
 ## Visualize convolution result (after activation) # TODO massimizzare l'output dopo la funzione di attivazione

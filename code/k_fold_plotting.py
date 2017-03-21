@@ -22,7 +22,7 @@ import matplotlib
 matplotlib.use('SVG')
 from matplotlib import pyplot
 
-total_history = numpy.load('./images/k_fold history.npy')
+total_history = numpy.load('./media/k_fold history.npy')
 
 # alphabetical order (axis=2)
 names = ['acc','loss','val_acc','val_loss']
@@ -90,7 +90,7 @@ ax3.legend(loc='best', frameon=False)
 ax3.set_ylim((1e-2,1e-0))
 ax3.set_yscale('log')
 #pyplot.show()
-fig.savefig('./images/k_fold_training_history.svg')
+fig.savefig('./media/k_fold_training_history.svg')
 pyplot.close()
 
 

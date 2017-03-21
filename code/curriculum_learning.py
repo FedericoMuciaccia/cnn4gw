@@ -98,5 +98,5 @@ for index, amplitude in amplitudes.itertuples(): # non parallelizzabile: apprend
 	train_history = pandas.concat([train_history, new_train_history], ignore_index=True)
 	
 	
-train_history.to_csv('./images/training_history.csv', index=False)
+train_history.to_csv('./media/training_history.csv', index=False)
 

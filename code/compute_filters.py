@@ -171,7 +171,7 @@ def find_filters(layer_name):
 for layer_name in layer_dict.keys():
 	print(layer_name)
 	imgs = find_filters(layer_name)
-	numpy.save('.images/filters/{name}.npy'.format(name=layer_name), imgs)
+	numpy.save('./media/filters/{name}.npy'.format(name=layer_name), imgs)
 	#numpy.save('./losses.npy', losses)
 
 # TODO riprovare con i filtri della rete VGG16

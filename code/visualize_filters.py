@@ -78,7 +78,7 @@ if __name__ == "__main__":
 	#layer_names = [layer.name for layer in truncated_model.layers if 'convolution2d' in layer.name]
 	layer_names = ['convolution2d_{number}'.format(number=n) for n in numpy.arange(1,5+1)]
 	for layer_name in layer_names: # TODO parallelizzare
-		imgs = numpy.load('./images/filters/{name}.npy'.format(name=layer_name))
+		imgs = numpy.load('./media/filters/{name}.npy'.format(name=layer_name))
 		#losses = numpy.load('./losses.npy')
 		
 		rows, cols = 4, 4 #5, 6
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 			mosaic = numpy.squeeze(mosaic) # leva la profondità di 1 per il bianco-nero perché così vuole scipy.misc.imsave # TODO
 	
 		# TODO vedere scikit-image
-		scipy.misc.imsave('./images/filters/{name}.tif'.format(name=layer_name), mosaic) # TODO png OR svg?
+		scipy.misc.imsave('./media/filters/{name}.tif'.format(name=layer_name), mosaic) # TODO png OR svg?
 		# TODO rigirare le immagini di 90 gradi, in modo da fare un mosaico con la stessa orienzazione delle vere immagini di input
 	
 	# TODO riprovare con i filtri della rete VGG16

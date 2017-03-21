@@ -72,7 +72,7 @@ def load_and_plot(filename, amplitude):
     pyplot.scatter(x, y, c=z, cmap='gray_r', marker='.', linewidth=0)
     pyplot.colorbar()
     
-    pyplot.savefig(amplitude + '_signal_significance.svg')
+    pyplot.savefig('./media/' + amplitude + '_signal_significance.svg')
     pyplot.close()
 
 load_and_plot(filename_visible_signal, amplitude='0.03e-22')

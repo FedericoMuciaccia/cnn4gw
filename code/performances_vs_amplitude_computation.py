@@ -49,7 +49,7 @@ def get_images_and_classes(dataframe):
 	return images, classes
 
 
-df = pandas.read_csv('./images/k_fold_dataframe.csv')
+df = pandas.read_csv('./media/k_fold_dataframe.csv')
 
 is_train = numpy.random.randint(2, size=len(df)).astype(bool)
 df['is_train'] = is_train
@@ -109,6 +109,6 @@ for amplitude, group in grouped_dataframe:
 
 performances = pandas.DataFrame(performances, columns=['amplitude','purity','efficiency'])
 
-performances.to_csv('./images/performances_vs_amplitude.csv', index=False)
+performances.to_csv('./media/performances_vs_amplitude.csv', index=False)
 
 

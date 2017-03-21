@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use('SVG')
 from matplotlib import pyplot
 
-performances = pandas.read_csv('./images/performances_vs_amplitude.csv')
+performances = pandas.read_csv('./media/performances_vs_amplitude.csv')
 # amplitude, precision/purity, recall/efficiency
 
 
@@ -44,7 +44,7 @@ ax3.set_ylim((0.9,1.0))
 #ax3.set_yscale('log')
 ax3.set_xscale('log')
 #pyplot.show()
-fig.savefig('./images/performances_vs_amplitude.svg')
+fig.savefig('./media/performances_vs_amplitude.svg')
 pyplot.close()
 
 

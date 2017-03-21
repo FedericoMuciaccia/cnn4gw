@@ -79,7 +79,7 @@ possible_amplitudes = numpy.array(possible_amplitudes) * 1e-22
 df = df.sample(frac=1)
 df = df.reindex(numpy.random.permutation(df.index))
 
-df.to_csv('./images/k_fold_dataframe.csv', index=False)
+df.to_csv('./media/k_fold_dataframe.csv', index=False)
 
 from read_data import read_it
 
@@ -128,7 +128,7 @@ for i in range(k_fold_number):
 
 # NOTA: questo calcolo prende circa 50 minuti su GPU e 4.5 GB di memoria grafica
 
-numpy.save('./images/k_fold history.npy', total_history)
+numpy.save('./media/k_fold history.npy', total_history)
 
 
 
