@@ -23,7 +23,7 @@ import skimage.io
 import numpy
 import os
 
-data_dir = "./raw data/"
+data_dir = "./data/raw data/simulated signal on gaussian white noise background/"
 image_dir = './data img/skimage tif/'
 
 # MATLAB 5.0 MAT-file
@@ -65,6 +65,7 @@ def read_it(file_path):
 	#z = df.significance.values
 	#pyplot.scatter(x,y, c=z, cmap='gray_r', marker='.', linewidth=0)
 	
+	# TODO c'è probabilmente un bug nella canalizzazione, perché mi sono accorto che alcuni pixel bianchi (circa 1 su mille) hanno un conteggio di 2 invece che 1
 	
 	# istogramma supposto puramente binario
 	histogram_results = numpy.histogram2d(x, y, bins=[98,82])
@@ -129,34 +130,88 @@ def allFilesIn(topFolder):
 	return fileList
 
 
-#amplitudes = [0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01, 0.009, 0.008, 0.007, 0.006, 0.005]
-#for amplitude in amplitudes:
-#	folder = data_dir + str(amplitude) + 'e-22/'
-folder = data_dir
-if True:	
-	images = []
-	classes = []
+amplitudes = [0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01, 0.009, 0.008, 0.007, 0.006, 0.005]
+images = []
+classes = []
+amps = []	
+for amplitude in amplitudes: # TODO parallelizzare
+	folder = data_dir + str(amplitude) + 'e-22/'
+#folder = data_dir
+#if True:	
+	#images = []
+	#classes = []
 	for filepath in allFilesIn(folder): #os.listdir(data_dir):
 		images.append(read_it(filepath))
+		amps.append(amplitude * 1e-22)
 		if 'SIG' in filepath:
 			classes.append(1) # 1: noise and signal
 		if 'NOISE' in filepath:
 			classes.append(0) # 0: noise only
-		filename = os.path.split(filepath)[-1]
+		#filename = os.path.split(filepath)[-1]
 		#plot_it(filename)
-	images = numpy.array(images)
-	images = images.astype(numpy.float32)
-	classes = numpy.array(classes)
-	classes = classes.astype(numpy.float32)
+images = numpy.array(images)
+images = images.astype(numpy.float32)
+classes = numpy.array(classes)
+classes = classes.astype(numpy.float32)
+amps = numpy.array(amps)
+amps = amps.astype(numpy.float32)
+	#images = numpy.array(images)
+	#images = images.astype(numpy.float32)
+	#classes = numpy.array(classes)
+	#classes = classes.astype(numpy.float32)
 	# TODO salvare gli array come 'sparse', dato che ci sono un sacco di zeri
 	# TODO oppure salvare i dati in binario, per risparmiare spazio, e poi fare un preprocessing delle immagini prima di fare i calcoli
 	#print(images.shape, classes.shape)
-	numpy.save('./clean data/images (all).npy', images)
-	numpy.save('./clean data/classes (all).npy', classes)
+#	numpy.save('./clean data/images (all).npy', images)
+#	numpy.save('./clean data/classes (all).npy', classes)
 #	numpy.save('./data/images ({amp}e-22).npy'.format(amp=amplitude), images)
 #	numpy.save('./data/classes ({amp}e-22).npy'.format(amp=amplitude), classes)
 
+####################################
+
+# data preparation and preprocessing
+
+from sklearn.utils import shuffle
+#from sklearn.model_selection import train_test_split
+
+# data shuffle
+images, classes, amps = shuffle(images, classes, amps)
+# serve fare il random shuffle poiché il validation set viene sempre preso dai dati finali
+
+# reshuffle one more time :)
+images, classes, amps = shuffle(images, classes, amps)
+# TODO controllare che questo random refhuffle di scikit-learn sia effettivamente a maximum entropy
+
+# data preparation
+# 600 signal + 600 noise = 1200 images 98x82 pixel
+# samples, rows, columns, channels
+number_of_samples, image_width, image_height = images.shape
+channels = 1 # black and white images
+images = images.reshape(number_of_samples, image_width, image_height, channels) # TODO procedura assurda
+# TODO il reshape di numpy dovrebbe essere in-place (più sensato)
+image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
+
+# TODO mettere 1-epsilon e 0+epsilon per far convergere la funzione costo
+
+# data preprocessing
+# i dati sono già normalizzati tra 0 e 1
+# in futuro normalizzare direttamente gli spettrogrammi
+
+# split the dataset in train and validation
+validation = numpy.random.random_integers(low=0, high=1+1, size=len(images)) # piccolo hack per avere l'intervallo chiuso a destra
+#validation_percentage = 1/2#/6 # TODO generalizzare
+#train_images, validation_images, train_classes, validation_classes = #train_test_split(images, classes, test_size=validation_percentage)
+
+###############################
+
+# create a numpy structured array
+clean_data = numpy.array(list(zip(images,classes,amps,validation)), dtype='(98,82,1)float32, float32, float32, int8')
+clean_data.dtype.names = ('image','class','amplitude','validation')
+# save the data on disk
+numpy.save('./data/clean_data.npy', clean_data)
 # TODO usare un formato file più universalemte riconosciuto e leggibile di npy (csv? hdf5? h5?)
+
+exit()
 
 #time = np.linspace(0,1.25,50)
 #omega = np.linspace(0,2*np.pi,50)

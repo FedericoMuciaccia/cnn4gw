@@ -29,7 +29,7 @@ from keras.layers import Convolution2D, MaxPooling2D, AveragePooling2D, Activati
 
 from keras.layers.normalization import BatchNormalization
 
-from keras.layers.advanced_activations import PReLU
+#from keras.layers.advanced_activations import PReLU
 
 import numpy
 import pandas
@@ -45,8 +45,17 @@ from sklearn.model_selection import train_test_split
 # TODO vedere se salvare i dati come matrici sparse per risparmiare spazio
 
 # import the dataset
-images = numpy.load('./clean data/images (all).npy')
-classes = numpy.load('./clean data/classes (all).npy')
+data = numpy.load('./data/clean_data.npy')
+image_shape = data['image'].shape
+train_set = data[data['validation']==0]
+test_set = data[data['validation']==1]
+train_images = train_set['image']
+train_classes = train_set['class']
+validation_images = test_set['image']
+validation_classes = test_set['class']
+
+#images = numpy.load('./clean data/images (all).npy')
+#classes = numpy.load('./clean data/classes (all).npy')
 
 # TODO correggere a valori non asintotici per agevolare la sigmoide finale
 #classes[classes == 1] = 0.95 # 1 - K.epsilon
@@ -54,39 +63,39 @@ classes = numpy.load('./clean data/classes (all).npy')
 
 # TODO farsi fare immagini/peakmap/spettrogrammi quadrati con lati con potenze di 2
 
-# data shuffle
-images, classes = shuffle(images, classes)
-# serve fare il random shuffle poiché il validation set viene sempre preso dai dati finali
-
-# reshuffle one more time :)
-images, classes = shuffle(images, classes)
-# TODO controllare che questo random refhuffle di scikit-learn sia effettivamente a maximum entropy
-
-# data preparation
-# 600 signal + 600 noise = 1200 images 98x82 pixel
-# samples, rows, columns, channels
-number_of_samples, image_width, image_height = images.shape
-channels = 1 # black and white images
-images = images.reshape(number_of_samples, image_width, image_height, channels) # TODO procedura assurda
-# TODO il reshape di numpy dovrebbe essere in-place (più sensato)
-image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
+## data shuffle
+#images, classes = shuffle(images, classes)
+## serve fare il random shuffle poiché il validation set viene sempre preso dai dati finali
+#
+## reshuffle one more time :)
+#images, classes = shuffle(images, classes)
+## TODO controllare che questo random refhuffle di scikit-learn sia effettivamente a maximum entropy
+#
+## data preparation
+## 600 signal + 600 noise = 1200 images 98x82 pixel
+## samples, rows, columns, channels
+#number_of_samples, image_width, image_height = images.shape
+#channels = 1 # black and white images
+#images = images.reshape(number_of_samples, image_width, image_height, channels) # TODO procedura assurda
+## TODO il reshape di numpy dovrebbe essere in-place (più sensato)
+##image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
 
 # TODO mettere 1-epsilon e 0+epsilon per far convergere la funzione costo
 
-# data preprocessing
-# i dati sono già normalizzati tra 0 e 1
-# in futuro normalizzare direttamente gli spettrogrammi
-
-# split the dataset in train and validation
-validation_percentage = 1/2#/6
-train_images, validation_images, train_classes, validation_classes = train_test_split(images, classes, test_size=validation_percentage)
-
-# save the datasets
-numpy.save('./clean data/train_images (all).npy', train_images)
-numpy.save('./clean data/train_classes (all).npy', train_classes)
-numpy.save('./clean data/validation_images (all).npy', validation_images)
-numpy.save('./clean data/validation_classes (all).npy', validation_classes)
-# TODO save only the validation set
+## data preprocessing
+## i dati sono già normalizzati tra 0 e 1
+## in futuro normalizzare direttamente gli spettrogrammi
+#
+## split the dataset in train and validation
+#validation_percentage = 1/2#/6
+#train_images, validation_images, train_classes, validation_classes = train_test_split(images, classes, test_size=validation_percentage)
+#
+## save the datasets
+#numpy.save('./clean data/train_images (all).npy', train_images)
+#numpy.save('./clean data/train_classes (all).npy', train_classes)
+#numpy.save('./clean data/validation_images (all).npy', validation_images)
+#numpy.save('./clean data/validation_classes (all).npy', validation_classes)
+## TODO save only the validation set
 
 #def transform_classes(classes):
 #	# change the encodind for the classes array
