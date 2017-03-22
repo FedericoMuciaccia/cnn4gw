@@ -189,7 +189,7 @@ number_of_samples, image_width, image_height = images.shape
 channels = 1 # black and white images
 images = images.reshape(number_of_samples, image_width, image_height, channels) # TODO procedura assurda
 # TODO il reshape di numpy dovrebbe essere in-place (più sensato)
-image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
+#image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
 
 # TODO mettere 1-epsilon e 0+epsilon per far convergere la funzione costo
 

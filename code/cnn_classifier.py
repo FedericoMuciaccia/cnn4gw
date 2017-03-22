@@ -46,7 +46,10 @@ from sklearn.model_selection import train_test_split
 
 # import the dataset
 data = numpy.load('./data/clean_data.npy')
-image_shape = data['image'].shape
+
+number_of_samples, image_width, image_height, channels = data['image'].shape
+image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'
+
 train_set = data[data['validation']==0]
 test_set = data[data['validation']==1]
 train_images = train_set['image']
