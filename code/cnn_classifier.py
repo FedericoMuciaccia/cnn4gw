@@ -224,6 +224,7 @@ model.add(Dense(1))
 model.add(Activation('sigmoid'))
 
 # TODO sigmoid VS softmax
+# la cosa migliore sarebbe avere alla fine due neuroni per le due categorie e poi un layer softmax per far uscire le probabilità di appartenere ad una data classe
 
 # plot a model summary to check the number of parameters
 model.summary()
