@@ -1,7 +1,7 @@
 # cnn4gw
 Search for Gravitational-Wave transients with a Convolutional Neural Network at the VIRGO interferometer
 
-The complete [report](https://github.com/FedericoMuciaccia/cnn4gw/blob/master/report/report.ipynb) can be read as a jupyter notebook here on GitHub.
+The complete report can be read here: [https://federicomuciaccia.github.io/cnn4gw/](https://federicomuciaccia.github.io/cnn4gw/)
 
 ## copyright and licenses
 Copyright (C) 2016 Federico Muciaccia (federicomuciaccia@gmail.com)  
