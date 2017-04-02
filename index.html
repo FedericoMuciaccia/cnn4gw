@@ -11907,7 +11907,7 @@ TODO mettere immagini vere pixelose fatte da scikit-image
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Real-noise">Real noise<a class="anchor-link" href="#Real-noise">&#182;</a></h2><p>The structure of the noise of the three interferometers of the network (LIGO Livingston and Hanford in the USA and VIRGO in Italy) is very complex, as can be seen from the detectors' sensitivity curves:</p>
-<p><img src="H1L1V1_representative_spectra.png" alt="real noise LIGO/VIRGO"></p>
+<p><img src="report/H1L1V1_representative_spectra.png" alt="real noise LIGO/VIRGO"></p>
 <p>The peculiar shape above comes from the combination of the following main contributions:</p>
 <ul>
 <li>seismic noise (left)</li>
@@ -11916,13 +11916,13 @@ TODO mettere immagini vere pixelose fatte da scikit-image
 <li>violin modes and other resonances (peaks)</li>
 </ul>
 <p>Here there are some peakmap examples of a <em>huge</em> signal injected onto a tiny frequency window of this noise:</p>
-<p><img src="TRANSIENT_50.3to2_.mat.jpg" alt="real noise transient example 1"></p>
-<p><img src="TRANSIENT_60.5588_.mat.jpg" alt="real noise transient example 2"></p>
-<p><img src="TRANSIENT_80.5588_.mat.jpg" alt="real noise transient example 3"></p>
+<p><img src="report/TRANSIENT_50.3to2_.mat.jpg" alt="real noise transient example 1"></p>
+<p><img src="report/TRANSIENT_60.5588_.mat.jpg" alt="real noise transient example 2"></p>
+<p><img src="report/TRANSIENT_80.5588_.mat.jpg" alt="real noise transient example 3"></p>
 <p>Dealing with the real noise seems too hard, at least at the beginning, because it is nonstationar and there are structures (lines) in the noise tha can easily be misclassified as signals. There are also many temporal slices with missing data. Sometimes those missing data are flagged, as for example when a train passed nearby, but some others are not, for example when the interferometer looses its <em>lock</em> (working posision) due to an unexpected external perturbation.</p>
 <p>So I decided to start with a simplified case: signals injected onto a background of gaussian white noise.</p>
 <p>To chose the level of white noise to deal with, I've made an euristic guess based on the most recent sensitivity curve of the two Advanced LIGO detectors, given the fact that they have already finished their upgrade phase, while the VIRGO detector still hasn't.</p>
-<p><img src="old_vs_advanced_LIGO_detectors.png" alt="advanced LIGO"></p>
+<p><img src="report/old_vs_advanced_LIGO_detectors.png" alt="advanced LIGO"></p>
 <p>The best working conditions are at the bottom of this new sensitivity curve, near the bilateral (that is: including negative Fourier frequencies) amplitude spectal density of $ S_h \simeq 6 \; 10^{-24} [1/\sqrt{Hz}]$. So this same value was choosen for the white noise.</p>
 
 </div>
@@ -11934,15 +11934,15 @@ TODO mettere immagini vere pixelose fatte da scikit-image
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Gaussian-white-noise">Gaussian white noise<a class="anchor-link" href="#Gaussian-white-noise">&#182;</a></h2><p>The signals injected onto the gaussian white noise background are way simpler than the ones injected onto the real noise.</p>
-<p><img src="GREYfiles_51_SIGnum_083_.mat.jpg" alt="signal on white noise"></p>
+<p><img src="report/GREYfiles_51_SIGnum_083_.mat.jpg" alt="signal on white noise"></p>
 <p>From this image we can see two peculiar behaviours:</p>
 <ul>
 <li>first, there is an empty white region around the signal: that's because we are recording only the points or local maximum</li>
 <li>second, the noise points get denser in the proximity of the signal: that's because the fluctuations are elevated in amplitude by the tails of the signal distribution, so that they can pass above the $2.5 \sigma$ threshold</li>
 </ul>
 <p>Of course, if the signal amplitude is lowered a lot, the pattern begins to be very difficult to see [first image below] or completely invisible, at least to me [second image below].</p>
-<p><img src="GREYfiles_91_SIGnum_093_.mat segnale a stento visibile.jpg" alt="weak signal on white noise"></p>
-<p><img src="GREYfiles_102_SIGnum_019_.mat segnale invisibile.jpg" alt="invisible signal on white noise"></p>
+<p><img src="report/GREYfiles_91_SIGnum_093_.mat segnale a stento visibile.jpg" alt="weak signal on white noise"></p>
+<p><img src="report/GREYfiles_102_SIGnum_019_.mat segnale invisibile.jpg" alt="invisible signal on white noise"></p>
 <p>Another advantage of using the white noise is that the computing time needed to generate the background is way less than with the real noise: 600 images in 10 minutes as opposed to 100 images in half an hour.
 <!-- come è fatto/simulato esattamente il segnale? -->
 That means that it's possible to generate larger datasets for the training and the validation phase.</p>
@@ -11966,18 +11966,18 @@ $$ x^{(l+1)}[a,b] = \varphi(w^{(l+1)(l)}[a-m,b-n] \; x^{(l)}[m,n] + b^{(l+1)(l)}
 <p>Here's a visual exalple of convolution between an input matrix (green) and a kernel matrix (yellow):
 <!-- <img src="./immagini esterne/matrix.png" width="10%"> -->
 <!-- <img src="./immagini esterne/kernel.png" width="6%"> --></p>
-<p><img src="matrix.png" alt="matrix"><img src="kernel.png" alt="kernel"></p>
-<p><img src="convolution.gif" alt="convolution"></p>
+<p><img src="report/matrix.png" alt="matrix"><img src="report/kernel.png" alt="kernel"></p>
+<p><img src="report/convolution.gif" alt="convolution"></p>
 <p>Note that the convolved feature is always a matrix (N-M+1)x(N-M+1), where NxN is the size of the input matrix and MxM the size of the kernel matrix.
 If a NxN output is required, for example to be able to deepen the network a lot, the input matrix can be padded with a complete frame of zeros. This operation is called <code>ZeroPadding</code>.</p>
 <p>Convolutions with nonlinear activation functions can then be stacked one above the other, to make the network deeper and with an internal hierarchical structure.</p>
 <p>The most used activation functions are Rectified Linear Units (ReLU), defined as</p>
-$$ \varphi(x) = max(0, x) $$<p><img src="relu.jpeg" alt="ReLU"></p>
+$$ \varphi(x) = max(0, x) $$<p><img src="report/relu.jpeg" alt="ReLU"></p>
 <p>A pooling system than gives to the network another explicit hierarchical structure, leading to a hierarchical decomposition of the visual space.
 That's why CNN are particularly well suited to the problem of pattern recognition inside images [6].</p>
 <p>The most common pool operations are the <code>AveragePooling</code> and the <code>MaxPooling</code>.
 The figure explains the procedure carried up by the <code>MaxPooling</code> layer, which by construction have the tendency to create more rotationally-invariant features.</p>
-<p><img src="max_pooling.png" alt="max pooling">
+<p><img src="report/max_pooling.png" alt="max pooling">
 <!-- <img src="./immagini esterne/max_pooling.png" width="50%"> --></p>
 <p>This operation halves the feature matrix linear size, making the remaining part of the network to weight less in memory.</p>
 
@@ -12039,7 +12039,7 @@ https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/
 <p>The input is made by 730 98x82 pixel black-and-white images (mini batch).
 The value of $N=730$ is imposed by memory requirements (see below).</p>
 <p>Here is a graphical scheme of the network:</p>
-<p><img src="CNN_model.png" alt="model diagram"></p>
+<p><img src="report/CNN_model.png" alt="model diagram"></p>
 <p>Given the sufficiently large <code>batch_size</code> (730), and the minimalistic amount of convolutional filters (16), no Dropout layers seem to be needed.</p>
 <p>BatchNormalization layers cannot be used here due their buggy behaviour in the Keras framework.</p>
 
@@ -12065,7 +12065,7 @@ The value of $N=730$ is imposed by memory requirements (see below).</p>
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Model-training-and-validation">Model training and validation<a class="anchor-link" href="#Model-training-and-validation">&#182;</a></h2><p>Given the fact that this is my first neural network, I made a huge number of training trials, trying to figure out which architecture works best and trying to find an acceptable set of parameters.</p>
 <p>A lot of effort was made to be sure to avoid overfitting, while keeping the network expressive enough and minimizing the computational cost.</p>
-<p><img src="training_history_24 5 blocchi 3x3x16.svg" alt="training history"></p>
+<p><img src="report/training_history_24 5 blocchi 3x3x16.svg" alt="training history"></p>
 <p>As can be seen in the above plot, the training is sufficiently smooth and ther's no overfitting, as a consequence of the early stopping.</p>
 <p>A curriculum learning procedure was also carried out, but giving no significative improvement.</p>
 <p>The fact that the test's cost and classification error are lower whith respect to the train's ones in the early epochs is due to the way Keras internally compute them.</p>
@@ -12079,7 +12079,7 @@ The value of $N=730$ is imposed by memory requirements (see below).</p>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="k-fold-validation">k-fold validation<a class="anchor-link" href="#k-fold-validation">&#182;</a></h2><p>A k-fold with $k = 10$ is also performed. It means that the whole dataset is splitted into 10 part, 9 of them used as train set and only 1 as validation set; than the complete training is repeated in the other 9 possible combinations and then all the results are averaged. The calculation takes $\sim 50$ minutes and $\sim 4.5$ GB of graphical memory with a <code>batch_size</code> of $600$</p>
-<p><img src="k_fold_training_history.svg" alt="k-fold training history"></p>
+<p><img src="report/k_fold_training_history.svg" alt="k-fold training history"></p>
 <p>The shaded areas of the picture are the $1 \sigma$ confidence band for the data (not for their average).
 The test uncertainty is bigger with respect to the train one, given the lower statistic.</p>
 <p>The training was early-stopped at 50 epochs to avoid overfitting.</p>
@@ -12099,9 +12099,9 @@ so the output of the network is a float32 number from 0 to 1.
 <p>Given the fact that ther's only one sigmoid, there is the following constraint about output probabilities:</p>
 $$ P_1 + P_0 = 1$$<p>This constraint can be avoided having $n$ sigmoids (or softmaxs) in the last layer, with $n$ the number of classes.</p>
 <p>Here is the histogram of the model's prediction about the whole validation dataset, separating the values for the two true classes with different colors:</p>
-<p><img src="class_predictions_5 kernel 3x3x16 7300 immagini.svg" alt="class prediction"></p>
+<p><img src="report/class_predictions_5 kernel 3x3x16 7300 immagini.svg" alt="class prediction"></p>
 <p>The following histogram represents the predictions for only the most difficult subset of the validation dataset ($\text{amplitude} = 0.005 \; 10^{-22}$)</p>
-<p><img src="class_predictions_4 most difficult only.jpg" alt="class prediction (most dificult only)"></p>
+<p><img src="report/class_predictions_4 most difficult only.jpg" alt="class prediction (most dificult only)"></p>
 <p>The clustering of false negative near the predicted value of 0 is due to the previously discussed constraint on probabilities.</p>
 
 </div>
@@ -12168,7 +12168,7 @@ $$ \varepsilon = 0.998867 $$$$ \mathcal{P} = 0.968415 $$
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Efficiency-and-purity-at-different-amplitudes">Efficiency and purity at different amplitudes<a class="anchor-link" href="#Efficiency-and-purity-at-different-amplitudes">&#182;</a></h2><p>The previous values for $\varepsilon$ and $\mathcal{P}$ are referrend to the whole validation set. Here is a graph showing the different values for the samples in the same validation set, but divided by amplitude:</p>
-<p><img src="performances_vs_amplitude.svg" alt="different amplitudes"></p>
+<p><img src="report/performances_vs_amplitude.svg" alt="different amplitudes"></p>
 <p>It can be seen that even at the smallest amplitude ($5 \; 10^{-25}$) the network is still able to make a useful discrimination between signal and noise ($\varepsilon = 0.65$) while mantaining a perfectly clean output stream ($\mathcal{P} = 1.00$).</p>
 <p>The huge drop in efficiency from $6 \; 10^{-25}$ to $5 \; 10^{-25}$ suggests that we are approaching the limit of the classifier, at least with the given contitions. A further increase in efficiency can be surely achieved feeding the network with the complete samples, without the $2.5 \sigma$ cut and in full <code>float32</code> graytones.</p>
 
