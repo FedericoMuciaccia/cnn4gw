@@ -8,7 +8,7 @@ import tflearn
 # import the dataset
 # TODO check how to efficiently read data in pure tensorflow
 # TODO usare un formato dati più standard e direttamente leggibile in tensorflow
-data = numpy.load('./GENERATED_clean_data.npy')
+data = numpy.load('../../../GENERATED_clean_data.npy')
 # TODO don't load everything in memory with huge datasets
 # TODO trainX, trainY, testX, testY = mnist.load_data(one_hot=True)
 
@@ -116,11 +116,14 @@ def neural_network(images, weights, biases):
     for layer in range(convolutional_layers): # TODO vedere se il for di python rallenta tutto
         # cross-correlation
         # 2D_convolution + bias
-        # la convoluzione è in reltà qui una cross-correlazione # TODO vedere qual'è il significato con Kadhanoff blocking e renormalization group
+        # la convoluzione è in reltà qui una cross-correlazione
+        # TODO vedere qual'è il significato con Kadhanoff blocking e renormalization group
         x = tf.layers.conv2d(x,
                              filters=output_features[layer],
                              kernel_size=kernel_sizes[layer],
-                             kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=1.0), # TODO tf.contrib.layers.variance_scaling_initializer
+                             kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1),
+                             # TODO valori di varianza maggiori (come ad esempio il default stddev=1.0) portano il valore iniziale del loss a livelli astronomici (esempio: 10000) invece di circa 0.69, che penso debba essere il valore naturale
+                             # TODO kernel_initializer = tf.contrib.layers.variance_scaling_initializer(...)
                              # the truncated_normal distribution stops at 2 sigmas
                              use_bias=True, # TODO use a batch_normalization function instead of `biases`
                              bias_initializer = tf.zeros_initializer(), # if None, no bias will be applied
@@ -149,7 +152,7 @@ def neural_network(images, weights, biases):
 #                                          #moving_variance_initializer=tf.ones_initializer(),
 #                                          #beta_regularizer=None,
 #                                          #gamma_regularizer=None, 
-#                                          trainable=False)
+#                                          trainable=False) # TODO default: trainable=True
 #                                          # TODO learnable: different variance normalizations in the Kadhanof blocking?
 #                                          # or tf.contrib.layers.batch_norm(...)
 #                                          # or tf.nn.batch_normalization(...)
