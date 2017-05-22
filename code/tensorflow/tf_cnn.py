@@ -34,23 +34,25 @@ del data
 # https://en.wikipedia.org/wiki/Whitening_transformation
 # add_zca_whitening (pc=None)
 
+# TODO decidere Sì/No e poi, se Sì, evidenziare un quadratino attorno al segnale
 
 # NOTE per Ricci:
 # - facendo girare su CPU non si hanno vincoli di RAM
 # - è possibile usare immagini anche molto grandi anche con GPU
-# - aversial networks per simulare il rumore (segnale = non vero rumore?)
+# - aversial networks per simulare e caratterizzare il rumore (segnale = non vero rumore?)
+# - 
 
-
-# TODO rete tflearn, libro deep learning, rete tensorflow, strutture dati tensorflow sequenziali dinamiche, esempi infiniti, rete distribuita
+# TODO libro deep learning, rete tensorflow, strutture dati tensorflow sequenziali dinamiche, esempi infiniti, rete distribuita
 
 # training parameters
 # learning_rate = 0.001 # TODO is the initial value?
 # TODO learning rate that exponentially decays over time (updated at every epoch)
 #iterations = 100000 # TODO epochs
 batch_size = 128 # TODO massimo 512 per lo stochastic gradient descent (small-batch regime)
+# TODO capire perché con 128 converge molto molto più velocemente che con 512
 #display_step = 10
 
-number_of_epochs = 50#10
+number_of_epochs = 10#50
 
 # classifier parameters
 rows, columns, channels = image_shape
@@ -82,26 +84,26 @@ true_classes = tf.placeholder(tf.float32, shape=[None, number_of_classes]) # lab
 #dropout_probability = 0.75 # probability that a neuron's output is kept during the learning phase
 #keep_probability = tf.placeholder(tf.float32, shape=[]) # TODO tf.constant
 
-# create some wrappers for simplicity
-def convolutional_block(x, W, b):
-    """usage: x = convolutional_block(x, weights['conv{}'.format(layer+1)], biases['conv{}'.format(layer+1)])"""
-    # TODO tf.contrib.layers.conv2d or tf.slim.conv2d
-    # x is an image
-    strides = 1
-    # TODO zero_padding
-    # convolve the image with the weights tensor
-    # TODO (N kernels, with N the number of output features in the layer)
-    x = tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='SAME')
-    # add the bias
-    x = tf.nn.bias_add(x, b) # TODO tf.add
-    # TODO batch_normalization
-    x = tf.nn.relu(x)
-    # TODO dropout
-    return x
+## create some wrappers for simplicity
+#def convolutional_block(x, W, b):
+#    """usage: x = convolutional_block(x, weights['conv{}'.format(layer+1)], biases['conv{}'.format(layer+1)])"""
+#    # TODO tf.contrib.layers.conv2d or tf.slim.conv2d
+#    # x is an image
+#    strides = 1
+#    # TODO zero_padding
+#    # convolve the image with the weights tensor
+#    # TODO (N kernels, with N the number of output features in the layer)
+#    x = tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='SAME')
+#    # add the bias
+#    x = tf.nn.bias_add(x, b) # TODO tf.add
+#    # TODO batch_normalization
+#    x = tf.nn.relu(x)
+#    # TODO dropout
+#    return x
 
 # create model
 # TODO with tf.Graph().as_default():
-def neural_network(images, weights, biases):
+def neural_network(images): #, weights, biases):
     # rename the input
     x = images
     # TODO tf.input
@@ -127,6 +129,7 @@ def neural_network(images, weights, biases):
                              # the truncated_normal distribution stops at 2 sigmas
                              use_bias=True, # TODO use a batch_normalization function instead of `biases`
                              bias_initializer = tf.zeros_initializer(), # if None, no bias will be applied
+                             # TODO mettere piccoli valori positivi (randomici?) per evitare i 'neuroni morti' con la successiva ReLU
                              #kernel_regularizer=None,
                              #bias_regularizer=None, 
                              #activity_regularizer=None, # TODO regularizer function for the output
@@ -182,53 +185,60 @@ def neural_network(images, weights, biases):
     
     # fully-connected part
     # readout layer
-    # TODO tf.contrib.layers.fully_connected
-    # TODO tf.layers.dense + tf.nn.relu
-    # x is a flat array of neurons
-    W, b = weights['dense1'], biases['dense1']
-    logit_output = tf.add(tf.matmul(x, W), b) # Wx+b
-    # TODO specify weights initialization
-    
+    # Wx+b with no activation function
+    logit_output = tf.layers.dense(x, # x is a flat array of neurons
+                        units=number_of_classes,
+                        activation=None, # no softmax activation here: read below to know why
+                        use_bias=True,
+                        kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1), # TODO valutare valore ottimale varianza
+                        bias_initializer=tf.zeros_initializer(), # TODO errato?
+                        kernel_regularizer=None, # TODO
+                        bias_regularizer=None,
+                        activity_regularizer=None) # TODO ??
+                        # or tf.contrib.layers.fully_connected
     # the last activation function (softmax) is here omitted because it's computed later together with the cross entropy, in a more numerically-stable way
-    # so the outputs don't represent class probabilities (they can be negatives and don't sum up to 1). they are called "logits"
+    # so the outputs don't represent class probabilities (they can be negatives, from -inf to +inf, and don't sum up to 1). they are called "logits"
+                        
+#    W, b = weights['dense1'], biases['dense1']
+#    logit_output = tf.add(tf.matmul(x, W), b) # Wx+b
+    
     return logit_output
 
-# initialize weights with a small amount of noise (for symmetry breaking and to prevent null gradients)
-def weight_variable(shape):
-    initial_value = tf.truncated_normal(shape, stddev=0.1)
-    # TODO truncated_normal vs random_normal con bassa varianza
-    return tf.Variable(initial_value)
+## initialize weights with a small amount of noise (for symmetry breaking and to prevent null gradients)
+#def weight_variable(shape):
+#    initial_value = tf.truncated_normal(shape, stddev=0.1)
+#    # TODO truncated_normal vs random_normal con bassa varianza
+#    return tf.Variable(initial_value)
 
-# using ReLU activation functions, it's good to have a slightly positive initial bias in the initialization, to avoid "dead neurons"
+# TODO using ReLU activation functions, it's good to have a slightly positive initial bias in the initialization, to avoid "dead neurons"
 # TODO forse contrasta con l'effetto della batch_normalization
 # Otherwise, if `normalizer_fn` is None and a `biases_initializer` is provided then a `biases` variable would be created and added the hidden units.
-def bias_variable(shape):
-    # TODO vedere se introdurre noise anche nel bias
-    initial_value = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial_value)
+#def bias_variable(shape):
+#    # TODO vedere se introdurre noise anche nel bias
+#    initial_value = tf.constant(0.1, shape=shape)
+#    return tf.Variable(initial_value)
 
 # store weights ad biases
-# TODO automatic way with tf.contrib.layers
-weights = {
+#weights = {
 #    'conv1': weight_variable([3,3,1,8]), # 3x3 kernel, 1 input, 8 output
 #    'conv2': weight_variable([3,3,8,8]), # TODO ???
 #    'conv3': weight_variable([3,3,8,16]), # TODO non sembra esserci alcun vantaggio di memoria nello stringere l'immagine con i pool
 #    'conv4': weight_variable([3,3,16,16]),
 #    'conv5': weight_variable([3,3,16,32]),
-    'dense1': weight_variable([4*3*32,number_of_classes]), # TODO generalizzare TODO ??? ([5*5*32, 10]),
-}
+#    'dense1': weight_variable([4*3*32,number_of_classes]), # TODO generalizzare TODO ??? ([5*5*32, 10]),
+#}
 
-biases = {
+#biases = {
 #    'conv1': bias_variable([8]),
 #    'conv2': bias_variable([8]),
 #    'conv3': bias_variable([16]),
 #    'conv4': bias_variable([16]),
 #    'conv5': bias_variable([32]),
-    'dense1': bias_variable([number_of_classes])
-}
+#    'dense1': bias_variable([number_of_classes])
+#}
 
 # construct model
-logit_predictions = neural_network(images, weights, biases)
+logit_predictions = neural_network(images) #, weights, biases)
 
 # define the cost function and the optimizer
 # TODO binary_cross_entropy
@@ -237,10 +247,17 @@ logit_predictions = neural_network(images, weights, biases)
 # Measures the probability error in discrete classification tasks in which the classes are mutually exclusive (each entry is in exactly one class).
 # compute softmax and cross entropy together, to take care of numerical stability
 # logits values are not probabilities
-# the real cost function is the cross_entropy
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logit_predictions, labels=true_classes)) # TODO capire logits, inversa sbagliata in sigmoide, softmax coi negativi
-optimizer = tf.train.AdamOptimizer()
-train_step = optimizer.minimize(loss)
+# the real loss/cost function is the categorical cross entropy
+# The raw formulation of cross-entropy,
+# tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(tf.softmax(y)),
+#                               reduction_indices=[1]))
+# can be numerically unstable
+categorical_cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logit_predictions, labels=true_classes) # TODO capire logits, inversa sbagliata in sigmoide, softmax coi negativi
+# average across the batch
+average_categorical_cross_entropy = tf.reduce_mean(categorical_cross_entropy)
+# loss = average_categorical_cross_entropy
+optimizer = tf.train.AdamOptimizer() # TODO exponentially decaying learnig rate
+train_step = optimizer.minimize(average_categorical_cross_entropy)
 # default Adam parameters are ok (example: learning_rate)
 
 # compute class prediction with softmax
@@ -268,8 +285,20 @@ accuracy = tf.reduce_mean(correctness_of_predictions)
 
 classification_error = 1 - accuracy # TODO check
 
+# TODO plottare errore per i singoli dataset
+
+#while True:
+#    sess.run(my_train_op)
+
+writer = tf.summary.FileWriter(logdir='../../../tf_logs/')
+# asynchronously updates the file contents. this allows a training program to call methods to add data to the file directly from the training loop, without slowing down training
+#writer.add_graph(sess.graph)
+#writer.add_summary() # TODO
+#writer.add_session_log()
+#writer.add_event()
+
 #with tf.device('/cpu:0'):
-trainop = tflearn.TrainOp(loss=loss,
+trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
                           optimizer=optimizer,
                           metric=accuracy,
                           batch_size=batch_size)
@@ -280,9 +309,23 @@ trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_
 # se si chiama trainer.fit() successivamente, l'addestramento riprende da dove lo si era lasciato
 # TODO implementare il curriculum learning o il decadimento esponenziale del learning_rate
 
+# TODO model metrics and validation plots con tf.summary
+# TODO training in puro tensorflow
 
+# TODO vedere tensorboard
 
-exit()
+tf.summary.scalar('cross_entropy', average_categorical_cross_entropy)
+tf.summary.scalar('accuracy', accuracy)
+# tf.summary.image('input', x_image, 3)
+# merged_summary = tf.summary.merge_all()
+
+# tf.train.basic_train_loop(supervisor, train_step_fn)
+# tf.train.limit_epochs
+# tf.train.shuffle_batch
+# tf.train.Supervisor
+# A training helper that checkpoints models and computes summaries. The Supervisor is a small wrapper around a `Coordinator`, a `Saver`, and a `SessionManager` that takes care of common needs of TensorFlow training programs.
+
+# Checkpoints are binary files in a proprietary format which map variable names to tensor values. # TODO ???
 
 # with sess.as_default():
 
@@ -294,6 +337,10 @@ with tf.Session() as sess: # TODO with
     step = 1 # first iteration
     # Keep training until reach max iterations
     # TODO tf.while_loop
+
+    writer.add_graph(sess.graph)
+    exit()
+
     while step * batch_size < iterations: # number of training examples shown to the neural network
         # the steps argument sets the number of mini-batches to train on
         # TODO vs 50 epochs with shuffled data
