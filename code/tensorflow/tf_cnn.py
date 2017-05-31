@@ -210,6 +210,8 @@ def neural_network(images): #, weights, biases):
 #    # TODO truncated_normal vs random_normal con bassa varianza
 #    return tf.Variable(initial_value)
 
+# TODO capire come si fa esattamente la backpropagation con le reti convolutive
+
 # TODO using ReLU activation functions, it's good to have a slightly positive initial bias in the initialization, to avoid "dead neurons"
 # TODO forse contrasta con l'effetto della batch_normalization
 # Otherwise, if `normalizer_fn` is None and a `biases_initializer` is provided then a `biases` variable would be created and added the hidden units.
