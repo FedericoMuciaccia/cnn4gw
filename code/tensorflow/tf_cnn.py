@@ -193,6 +193,8 @@ def neural_network(images, weights, biases):
     # so the outputs don't represent class probabilities (they can be negatives and don't sum up to 1). they are called "logits"
     return logit_output
 
+# TODO capire come si fa esattamente la backpropagation con le reti convolutive
+
 # initialize weights with a small amount of noise (for symmetry breaking and to prevent null gradients)
 def weight_variable(shape):
     initial_value = tf.truncated_normal(shape, stddev=0.1)
