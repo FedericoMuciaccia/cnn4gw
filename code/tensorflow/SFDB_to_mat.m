@@ -68,10 +68,10 @@ function SFDB_to_mat(path)
         
         %TODO size 1 1 per gli scalari: 1 riga e 1 colonna
         
-        % FFT starting time (using Modified Julian Date) (computed using seconds and nanoseconds) % TODO ridondante
+        % FFT starting time (using Modified Julian Date) (computed using seconds and nanoseconds TODO CHECK) % TODO ridondante
         mjd_time = single(header.mjdtime);
         
-        scaling_factor = single(header.einstein(1)); % 10^-20
+        scaling_factor = single(header.einstein(1)); % 10^-20 % TODO Einstein
         
         spare1 = header.spare1; % not used yet
         spare2 = header.spare2;
@@ -98,7 +98,7 @@ function SFDB_to_mat(path)
         number_of_flags = header.n_flag(1); % TODO originariamente lista di -1
         
         % number of artificial zeros, used to fill every hole in the FFT (eg: non-science data)
-        number_of_zeroes = header.n_zeroes(1); % TODO CHECK
+        number_of_zeros = header.n_zeroes(1); % TODO CHECK
         
         % window type used in the FF
         if header.wink(1) == 0
@@ -137,7 +137,7 @@ function SFDB_to_mat(path)
             'fft_interlaced','number_of_flags','scaling_factor','mjd_time','fft_index',...
             'window_type','normalization_factor','window_normalization','starting_fft_frequency',...
             'subsampling_time','frequency_resolution','velocity','position',...
-            'lenght_of_average_time_spectrum','number_of_zeroes','spare1','spare2',...
+            'lenght_of_average_time_spectrum','number_of_zeros','spare1','spare2',...
             'spare3','percentage_of_zeros','spare5','spare6','scientific_segment','spare9',...
             'periodogram', 'autoregressive_spectrum', 'data');
     end
@@ -161,12 +161,12 @@ function SFDB_to_mat(path)
     file_names = string({s.name});
     complete_file_paths = folder_paths + '/' + file_names;
     
-    % convert all the data
+    % convert all the data % TODO renderlo vettoriale e parallelo
     for file_path = complete_file_paths
         display(str2mat('Converting ' + file_path));
         convert_single_file(file_path);
     end
-    % TODO rendere generale la funzione, con argomento 'path' che può essere sia file che cartella
+    % the compressed .mat output file is 500 times smaller than the original one if the data are zeros (data missing or flagged)
 end
 
 

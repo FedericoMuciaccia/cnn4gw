@@ -1,5 +1,5 @@
 
-# `SFDB_to_mat` usage
+## `SFDB_to_mat` usage
 
 in the Matlab prompt:
 
@@ -13,7 +13,7 @@ convert LIGO Livingston data files
 >> SFDB_to_mat('/storage/pss/ligo_l/sfdb/O2/128/')
 ```
 
-# data informations
+## data informations
 
 * detectors: LIGO Hanford, LIGO Livingston
 * observing run: O2 (most recent data)
