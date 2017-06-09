@@ -20,6 +20,7 @@ from matplotlib import pyplot
 ### %matplotlib inline
 
 
+
 print('detectors: \t LIGO Hanford, LIGO Livingston')
 print('observing run: \t O2') # most recent data
 print('calibration: \t C00') # first calibration, then we will use C01
@@ -36,7 +37,7 @@ files = os.listdir(LIGO_Livingston_data_dir) # restituisce solo i nomi dei file/
 
 import fnmatch
 
-os.path
+os.path # TODO
 
 mat_files = fnmatch.filter(files, '*.mat')
 
