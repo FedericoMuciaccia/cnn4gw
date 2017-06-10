@@ -1,4 +1,4 @@
-function SFDB_to_mat(path)
+function convert_SFDB09_to_mat(path)
     % convert data from .SFDB09 to .mat format
     % 'path' can be a single file or a whole data directory
     % TODO vedere se funziona pure sulle liste di files
@@ -6,24 +6,24 @@ function SFDB_to_mat(path)
     % define a function to convert a single SFDB file
     function convert_single_file(file_path)
         % adapted for the original code written by Pia Astone
-        file_indentifier=fopen(file_path);
+        file_identifier=fopen(file_path);
         % the pia_read_block_09 function that can be found inside the Snag Matlab package, written by Sergio Frasca
         % Snag webpage: http://grwavsf.roma1.infn.it/snag/
         header = {};
         periodogram = {};
         autoregressive_spectrum = {};
-        data = {};
+        fft_data = {};
         % every single SFDB09 file includes a slice of 100 FFT
         number_of_FFT = 100;
         for fft_index = 1:number_of_FFT
-            [head tps sps sft]=pia_read_block_09(file_indentifier); % TODO rendere parallela la funzione
+            [head tps sps sft]=pia_read_block_09(file_identifier); % TODO rendere parallela la funzione
             if head.eof % the final files have less fft inside them
                 break
             end
             header = [header, head];
             periodogram = [periodogram, tps];
             autoregressive_spectrum = [autoregressive_spectrum, sps];
-            data = [data, sft];
+            fft_data = [fft_data, sft];
         end
         
         header = struct2table(cell2mat(header)); % TODO squeeze(header)
@@ -52,7 +52,9 @@ function SFDB_to_mat(path)
         
         % FFT starting time % TODO combinarli in float32
         gps_seconds = header.gps_sec;
-        gps_nanoseconds = header.gps_nsec; % nanosecondi gps (da sommare ai secondi, dopo averli moltiplicati per 10 alla -9 % TODO vedere perché sono 0
+        gps_nanoseconds = header.gps_nsec; % nanosecondi gps (da sommare ai secondi, dopo averli moltiplicati per 10^-9 % TODO vedere perché sono 0
+        gps_time = gps_seconds + gps_nanoseconds * 1e-9; % TODO rivedere per sicurezza
+        % TODO mettere pure conversione a date umanamente leggibili
         
         if header.typ(1) == 1
             fft_interlaced = false; % TODO squeeze
@@ -108,7 +110,7 @@ function SFDB_to_mat(path)
         elseif header.wink(1) == 2
             window_type = 'Hamming';
         elseif header.wink(1) == 3
-            window_type = 'MAP'; % TODO Maria Alessandra ... , usata a Ligo
+            window_type = 'MAP'; % TODO Maria Alessandra Papa, usata a Ligo
         elseif header.wink(1) == 4
             window_type = 'Blackmann flatcos'; % TODO
         elseif header.wink(1) == 5
@@ -128,18 +130,18 @@ function SFDB_to_mat(path)
         
         autoregressive_spectrum = single(cell2mat(autoregressive_spectrum));
         
-        data = single(cell2mat(data));
+        fft_data = single(cell2mat(fft_data)); % TODO attenzione che invece dovrebbero essere numeri complessi % TODO senza single() è molto molto più lento
         
         % TODO save in h5 with the latest version (per ora 'MATLAB 5.0 MAT-file') (use '-v7.3' flag ?)
         save(strcat(file_path, '.mat'),...
-            'endianess','detector','gps_seconds','gps_nanoseconds','fft_lenght',...
+            'endianess','detector','gps_time','fft_lenght',...
             'starting_fft_sample_index','unilateral_number_of_samples','reduction_factor',...
             'fft_interlaced','number_of_flags','scaling_factor','mjd_time','fft_index',...
             'window_type','normalization_factor','window_normalization','starting_fft_frequency',...
             'subsampling_time','frequency_resolution','velocity','position',...
             'lenght_of_average_time_spectrum','number_of_zeros','spare1','spare2',...
             'spare3','percentage_of_zeros','spare5','spare6','scientific_segment','spare9',...
-            'periodogram', 'autoregressive_spectrum', 'data');
+            'periodogram', 'autoregressive_spectrum', 'fft_data');
     end
     
     % if we are dealing with a directory
@@ -161,7 +163,7 @@ function SFDB_to_mat(path)
     file_names = string({s.name});
     complete_file_paths = folder_paths + '/' + file_names;
     
-    % convert all the data % TODO renderlo vettoriale e parallelo
+    % convert all the data % TODO renderlo vettoriale e parallelo con parfor
     for file_path = complete_file_paths
         display(str2mat('Converting ' + file_path));
         convert_single_file(file_path);

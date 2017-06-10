@@ -4,6 +4,7 @@
 
 import os
 import numpy
+import xarray
 import scipy.io
 import matplotlib
 from matplotlib import pyplot
@@ -20,58 +21,7 @@ from matplotlib import pyplot
 ### %matplotlib inline
 
 
-
-print('detectors: \t LIGO Hanford, LIGO Livingston')
-print('observing run: \t O2') # most recent data
-print('calibration: \t C00') # first calibration, then we will use C01
-print('SFDB band: \t "256" (from 10 Hz to 128 Hz)') # TODO controllare
-# possible SFDB bands: 256, 512, 1024, 2048
-
-data_dir = '/storage'
-
-LIGO_Hanford_data_dir = '/storage/pss/ligo_h/sfdb/O2/128/'
-LIGO_Livingston_data_dir = '/storage/pss/ligo_l/sfdb/O2/128/'
-# TODO i dati in /storage sono delle copie di /data
-
-files = os.listdir(LIGO_Livingston_data_dir) # restituisce solo i nomi dei file/cartelle e non il loro percorso
-
-import fnmatch
-
-os.path # TODO
-
-mat_files = fnmatch.filter(files, '*.mat')
-
-import glob
-
-LIGO_Livingston_mat_files = glob.glob(LIGO_Livingston_data_dir + '*.mat') # non funziona con la data_dir generale
-
-# TODO ordinare la lista di file in ordine cronologico
-mat_files = sorted(mat_files)
-
-selected_power_spectrum = []
-fft_index = []
-science_ready = []
-detector = []
-for mat_file in LIGO_Livingston_mat_files:
-    a,selected_frequencies,c,d,detector = process_file(mat_file)
-    selected_power_spectrum.append(a)
-    fft_index.append(c)
-    science_ready.append(d)
-    # TODO molto poco elegante e conciso (provare a farlo con le strutture (e in maniera vettoriale))
-selected_power_spectrum = numpy.concatenate(selected_power_spectrum)
-fft_index = numpy.concatenate(fft_index) # TODO dato che l'indice ricomincia periodicamente, magari usare semplicemente la data e il tempo di acquisizione per garantire il buo ordinamento dei dati (e l'eventuale corretto conteggio di interruzioni temporali)
-science_ready = numpy.concatenate(science_ready)
-
-# TODO fare una funzione process_directory() che ritorni solo questo, le frequenze (y) e le date/tempi (coordinate temporali numeriche: GPS o UTC) (x)
-# usare xarray in modo da poter fare slices agevolmente: data.frequency[80:120] e anche data.time[2016-12-01:2017-02-9]
-# usare l'indice temporale come una TimeSeries
-# gps_times[science_ready]
-clean_selected_power_spectrum = selected_power_spectrum[science_ready]
-
-# TODO mettere la possibilità di specificare finestra temporale e finestra di frequenze direttamente nella funzione process_file()
-
-################################
-
+#%%%%%%%%%%%%%%%%%%%%%%
 
 
 # TODO vedere modulo interno di python per l'elaborazione dei path
@@ -82,7 +32,7 @@ clean_selected_power_spectrum = selected_power_spectrum[science_ready]
 
 #altro_path = './dati_di_prova/altri/L1:GDS-CALIB_STRAIN_20161228_110935.SFDB09'
 
-altro_path = './storage/pss/ligo_l/sfdb/O2/128/L1:GDS-CALIB_STRAIN_20161209_120255.SFDB09.mat'
+altro_path = '/storage/pss/ligo_l/sfdb/O2/128/L1:GDS-CALIB_STRAIN_20161209_120255.SFDB09.mat'
 
 # TODO scipy does not support v7.3 mat-files
 # matlab --v7.3 files are hdf5 datasets
@@ -97,7 +47,11 @@ altro_path = './storage/pss/ligo_l/sfdb/O2/128/L1:GDS-CALIB_STRAIN_20161209_1202
 
 show_time_data = True
 
+# TODO t_FFT FFT_time_window
 
+# TODO vedere pacchetto di LIGO GWpy
+
+# TODO Dataset.groupby(detector)
 
 def process_file(file_path):
     
@@ -105,9 +59,10 @@ def process_file(file_path):
     a = scipy.io.loadmat(file_path, squeeze_me=True)
     
     scaling_factor = a['scaling_factor']
+    gps_time_values = a['gps_time']
     autoregressive_spectrum = numpy.square(a['autoregressive_spectrum'])*scaling_factor # TODO
     periodogram = numpy.square(a['periodogram'])*scaling_factor # TODO
-    fft_data = a['data'] # TODO complex64 # TODO valutare se rinominarlo nel file .mat # TODO fft unilatera?
+    fft_data = a['fft_data'] # TODO complex64 # TODO valutare se rinominarlo nel file .mat # TODO fft unilatera?
     normalization_factor = a['normalization_factor']
     window_normalization = a['window_normalization']
     number_of_zeros = a['number_of_zeros'] # TODO controllare (anche con percentage_of_zeros)
@@ -162,6 +117,8 @@ def process_file(file_path):
     # tutti i filtri sono applicati nella banda di interesse, non fuori (per non buttare inutilmente campioni)
     
     is_empty = numpy.all(selected_power_spectrum == 0, axis=1)
+    
+    # TODO la condizione va ressa molto più soffice, mettendo un vincolo sulla media/mediana del periodogramma
     is_out_of_usual_range = selected_power_spectrum.max(axis=1) > 1e-22 # TODO fine tunined
     
     # autoregressive_spectrum and periodogram must be more or less the same
@@ -169,7 +126,7 @@ def process_file(file_path):
     absolute_tolerance = 1e-25 # TODO fine tuned
     has_discrepancies = numpy.any(numpy.logical_not(numpy.isclose(selected_autoregressive_spectrum, selected_periodogram, atol=absolute_tolerance)), axis=1)
     
-    is_flagged_old = numpy.logical_or(is_empty, is_out_of_usual_range)
+    is_flagged_old = numpy.logical_or(is_empty, is_out_of_usual_range) # TODO
     is_flagged = numpy.logical_or(is_flagged_old, has_discrepancies) # is_empty | is_out_of_usual_range | has_discrepancies
     
     science_ready = numpy.logical_not(is_flagged)
@@ -257,10 +214,134 @@ def process_file(file_path):
     
     print('Good spectra:', len(fft_index[science_ready]),'out of',len(fft_index))
     
-    return selected_power_spectrum, selected_frequencies, fft_index, science_ready, detector #, time
+    # create a unitary strusture to return
+    
+    coordinate_names = ['frequency','GPS_time']
+    coordinate_values = [selected_frequencies, gps_time_values]
+    attributes = {'detector': detector, 
+                  'FFT_time_window': t_FFT, # TODO hardcoded
+                  'observing run': 'O2', # TODO hardcoded
+                  'calibration': 'C00', # TODO hardcoded
+                  'SFDB band': 256} # TODO hardcoded
+                  # TODO inserire tra gli attributi anche la data che c'è sul nome file
+    
+    spectrogram = xarray.DataArray(data=numpy.transpose(selected_power_spectrum), 
+                                   dims=coordinate_names, 
+                                   coords=coordinate_values) #, attrs=attributes) #name='immagine'?
+    flag = xarray.DataArray(data=is_flagged, 
+                            dims=['GPS_time'], 
+                            coords=[gps_time_values])
+    
+    dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 'flag':flag}, 
+                        coords={'frequency':selected_frequencies,'GPS_time':gps_time_values}, 
+                        attrs=attributes)
+    
+    return dataset
+    #return selected_power_spectrum, selected_frequencies, fft_index, science_ready, detector , gps_time_values
 
 
-#########################
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+import glob
+
+def process_folder(path):
+    # TODO vedere se è un file o una cartella
+#    if is_file:
+#        file_path = path
+#    if is_folder: # TODO else if
+#        folder_path = path
+    folder_path = path
+    
+    mat_files = glob.glob(folder_path + '*.mat') # non funziona con la data_dir generale
+    mat_files = sorted(mat_files) # TODO per cercare di garantire la continuità dei valori di GPS_time
+    
+    datasets = []
+    for mat_file in mat_files:
+        datasets.append(process_file(mat_file))
+    
+    complete_dataset = xarray.concat(objs=datasets, dim='GPS_time')
+
+    return complete_dataset
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+LIGO_Livingston_data_dir = '/storage/pss/ligo_l/sfdb/O2/128/'
+
+
+LIGO_Livingston_complete_dataset = process_folder(LIGO_Livingston_data_dir)
+
+
+
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+print('detectors: \t LIGO Hanford, LIGO Livingston')
+print('observing run: \t O2') # most recent data
+print('calibration: \t C00') # first calibration, then we will use C01
+print('SFDB band: \t "256" (from 10 Hz to 128 Hz)') # TODO controllare
+# possible SFDB bands: 256, 512, 1024, 2048
+
+data_dir = '/storage'
+
+LIGO_Hanford_data_dir = '/storage/pss/ligo_h/sfdb/O2/128/'
+LIGO_Livingston_data_dir = '/storage/pss/ligo_l/sfdb/O2/128/'
+# TODO i dati in /storage sono delle copie di /data
+
+#files = os.listdir(LIGO_Livingston_data_dir) # restituisce solo i nomi dei file/cartelle e non il loro percorso
+
+#import fnmatch
+
+#os.path # TODO
+
+#mat_files = fnmatch.filter(files, '*.mat')
+
+import glob
+
+LIGO_Livingston_mat_files = glob.glob(LIGO_Livingston_data_dir + '*.mat') # non funziona con la data_dir generale
+
+# TODO ordinare la lista di file in ordine cronologico
+LIGO_Livingston_mat_files = sorted(LIGO_Livingston_mat_files)
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%
+
+selected_power_spectrum = []
+fft_index = []
+science_ready = []
+detector = []
+for mat_file in LIGO_Livingston_mat_files:
+    a,selected_frequencies,c,d,detector = process_file(mat_file)
+    selected_power_spectrum.append(a)
+    fft_index.append(c)
+    science_ready.append(d)
+    # TODO molto poco elegante e conciso (provare a farlo con le strutture (e in maniera vettoriale))
+selected_power_spectrum = numpy.concatenate(selected_power_spectrum)
+fft_index = numpy.concatenate(fft_index) # TODO dato che l'indice ricomincia periodicamente, magari usare semplicemente la data e il tempo di acquisizione per garantire il buo ordinamento dei dati (e l'eventuale corretto conteggio di interruzioni temporali)
+science_ready = numpy.concatenate(science_ready)
+
+# TODO fare una funzione process_directory() che ritorni solo questo, le frequenze (y) e le date/tempi (coordinate temporali numeriche: GPS o UTC) (x)
+# usare xarray in modo da poter fare slices agevolmente: data.frequency[80:120] e anche data.time[2016-12-01:2017-02-9]
+# usare l'indice temporale come una TimeSeries
+# gps_times[science_ready]
+clean_selected_power_spectrum = selected_power_spectrum[science_ready]
+
+# TODO mettere la possibilità di specificare finestra temporale e finestra di frequenze direttamente nella funzione process_file()
+
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 # crea l'immagine per soltanto 1 Hz di banda

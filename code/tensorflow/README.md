@@ -1,17 +1,23 @@
 
-## `SFDB_to_mat` usage
+## `convert_SFDB09_to_mat` usage
 
 in the Matlab prompt:
 
 convert LIGO Hanford data files
 ```
->> SFDB_to_mat('/storage/pss/ligo_h/sfdb/O2/128/')
+>> convert_SFDB09_to_mat('/storage/pss/ligo_h/sfdb/O2/128/')
 ```
 
 convert LIGO Livingston data files
 ```
->> SFDB_to_mat('/storage/pss/ligo_l/sfdb/O2/128/')
+>> convert_SFDB09_to_mat('/storage/pss/ligo_l/sfdb/O2/128/')
 ```
+
+or
+```
+>> convert_SFDB09_to_mat('/storage')
+```
+
 
 ## data informations
 
