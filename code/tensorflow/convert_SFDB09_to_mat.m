@@ -145,7 +145,7 @@ function convert_SFDB09_to_mat(path, output_folder) % TODO mettere il default ou
         if output_folder(end) ~= '/'
             output_folder = strcat(output_folder, '/');
         end
-        new_file_path = output_folder + string(first_UTC_time) + ".mat"; % TODO creare automaticamente le sottocartelle del path tramite le informazioni nel file, in modo da avere automaticamente tutto ordinato
+        new_file_path = output_folder + string(first_UTC_time) + '.mat'; % TODO creare automaticamente le sottocartelle del path tramite le informazioni nel file, in modo da avere automaticamente tutto ordinato
         
         % TODO save in h5 with the latest version (per ora 'MATLAB 5.0 MAT-file', almeno in lettura) (use '-v7.3' flag ?)
         save(new_file_path,...

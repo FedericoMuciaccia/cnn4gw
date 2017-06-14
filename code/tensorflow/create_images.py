@@ -317,7 +317,7 @@ def process_folder(path):
 #        folder_path = path
     folder_path = path
     
-    mat_files = glob.glob(folder_path + '*.mat') # non funziona con la data_dir generale
+    mat_files = glob.glob(folder_path + '*.mat') # TODO non funziona con la data_dir generale
     mat_files = sorted(mat_files) # TODO per cercare di garantire la continuità dei valori di GPS_time
     
     datasets = []
@@ -334,8 +334,30 @@ def process_folder(path):
 LIGO_Hanford_data_dir = '/storage/pss/ligo_h/sfdb/O2/128/' # TODO hardcoded
 LIGO_Livingston_data_dir = '/storage/pss/ligo_l/sfdb/O2/128/' # TODO hardcoded
 
+LIGO_Hanford_data_dir = '/storage/mat/H O2 C00 128Hz/' # TODO hardcoded
+LIGO_Livingston_data_dir = '/storage/mat/L O2 C00 128Hz/' # TODO hardcoded
+
+
+# TODO iterare sui 3 detector
+LIGO_Hanford_mat_files = sorted(glob.glob(LIGO_Hanford_data_dir + '*.mat'))
+LIGO_Livingston_mat_files = sorted(glob.glob(LIGO_Livingston_data_dir + '*.mat'))
+
+file_list = numpy.transpose(numpy.array([LIGO_Hanford_mat_files, LIGO_Livingston_mat_files]))
+
+# TODO funzione_lettura(..., delete_original=False)
+
+# TODO sperando che i files abbiano una corrispondenza 1 a 1 tra i 2 detector
+# TODO farlo con numpy.apply_along_axis
+for file_H, file_L in file_list:
+        ds_H = process_file(file_H)
+        ds_L = process_file(file_L)
+        dataset = xarray.concat(objs=[ds_H, ds_L], dim='detector')
+        # TODO eventuale preprocessing
+        dataset.to_netcdf('/storage/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time), format='NETCDF4') # TODO hardcoded # TODO non crea da solo le sottocartelle
 
 # TODO vedere se gli spettri selezionati sono aumentati ottimizzando i tagli ad occhio
+
+# BUG python e numpy: la numerazione a partire da 1 (invece che da 0) è molto più intuitiva e rilassante, perché rispecchia e riflette il modo comune di contare (ad esempio sulle dita delle mani)
 
 # TODO poi leggere tutto /storage e dare groupby sui detector
 
@@ -364,6 +386,16 @@ RGB_dataset.update({'globaly_science_ready': globaly_science_ready})
 # requires netCDF4 or [h5py + h5netcdf] python packages installed
 RGB_dataset.to_netcdf('~/Desktop/RGB_dataset.netCDF4', format='NETCDF4')
 
+
+#######################
+
+convert_mat_to_netCDF4(input_file_or_folder, output_folder)
+
+load_the_various_datasets_in_chunks_in_parallel
+preprocess_data
+save_the_big_dataset
+reload_it_in_chunks
+
 #######################
 
 a = xarray.open_dataset('~/Desktop/RGB_dataset.netCDF4')
@@ -390,6 +422,7 @@ a = xarray.open_dataset('~/Desktop/RGB_dataset.netCDF4')
 # CNAF, cartella Ornella, wn100/storage, wn1/storage, wn1/data
 # vedere data alla quale è cambiata o cambierà la calibrazione da C00 a C01 
 # il limite a 128 Hz deriva dall'aver preso FFT a 8192 s o dal subsampling time?
+# cancellare i file .mat una volta creati i Dataset con xarray
 
 
 #unlimited_dims : sequence of str, optional
