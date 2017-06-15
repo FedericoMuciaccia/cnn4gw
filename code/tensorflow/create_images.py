@@ -331,29 +331,31 @@ def process_folder(path):
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-LIGO_Hanford_data_dir = '/storage/pss/ligo_h/sfdb/O2/128/' # TODO hardcoded
-LIGO_Livingston_data_dir = '/storage/pss/ligo_l/sfdb/O2/128/' # TODO hardcoded
+def mat_to_netCDF4(detector_paths):i
+    pass
 
-LIGO_Hanford_data_dir = '/storage/mat/H O2 C00 128Hz/' # TODO hardcoded
-LIGO_Livingston_data_dir = '/storage/mat/L O2 C00 128Hz/' # TODO hardcoded
+# LIGO Hanford
+H_data_dir = '/storage/users/Muciaccia/mat/O2/C00/128Hz/H/' # TODO hardcoded
 
+# LIGO Livingston
+L_data_dir = '/storage/users/Muciaccia/mat/O2/C00/128Hz/L/' # TODO hardcoded
 
 # TODO iterare sui 3 detector
-LIGO_Hanford_mat_files = sorted(glob.glob(LIGO_Hanford_data_dir + '*.mat'))
-LIGO_Livingston_mat_files = sorted(glob.glob(LIGO_Livingston_data_dir + '*.mat'))
+H_mat_files = sorted(glob.glob(H_data_dir + '*.mat'))
+L_mat_files = sorted(glob.glob(L_data_dir + '*.mat'))
 
-file_list = numpy.transpose(numpy.array([LIGO_Hanford_mat_files, LIGO_Livingston_mat_files]))
+file_list = numpy.transpose(numpy.array([H_mat_files, L_mat_files]))
 
 # TODO funzione_lettura(..., delete_original=False)
 
 # TODO sperando che i files abbiano una corrispondenza 1 a 1 tra i 2 detector
-# TODO farlo con numpy.apply_along_axis
+# TODO farlo con numpy.apply_along_axis e funzione vettoriale di lettura
 for file_H, file_L in file_list:
         ds_H = process_file(file_H)
         ds_L = process_file(file_L)
         dataset = xarray.concat(objs=[ds_H, ds_L], dim='detector')
-        # TODO eventuale preprocessing
-        dataset.to_netcdf('/storage/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time), format='NETCDF4') # TODO hardcoded # TODO non crea da solo le sottocartelle
+        # TODO eventuale preprocessing per creare variabile globally_science_ready
+        dataset.to_netcdf('/storage/users/Muciaccia/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time), format='NETCDF4') # TODO hardcoded # TODO non crea da solo le sottocartelle
 
 # TODO vedere se gli spettri selezionati sono aumentati ottimizzando i tagli ad occhio
 
@@ -423,6 +425,13 @@ a = xarray.open_dataset('~/Desktop/RGB_dataset.netCDF4')
 # vedere data alla quale è cambiata o cambierà la calibrazione da C00 a C01 
 # il limite a 128 Hz deriva dall'aver preso FFT a 8192 s o dal subsampling time?
 # cancellare i file .mat una volta creati i Dataset con xarray
+# trovare file con elenco dei file fino a marzo
+# prendere adattatore
+# scrivere a Cristiano per Matlab
+# facendo gli spettrogrammi (incoerenti) si perde l'informazione sulla fase delle onde (forse è meglio fare la rete neurale audio multiscala che proponeva Uncini)
+# valutare di mettere seconda ssd economica per tenere i dati in locale (fare un calcolo di quandi mesi ci sono in un run della macchina)
+# /data è condiviso da wn 1 2 3
+# /storage è condiviso anche con wn 100
 
 
 #unlimited_dims : sequence of str, optional
