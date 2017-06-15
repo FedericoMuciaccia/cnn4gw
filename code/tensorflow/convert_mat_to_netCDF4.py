@@ -288,7 +288,7 @@ def process_file(file_path):
                   'observing run': 'O2', # TODO hardcoded (estrarlo dal file path)
                   'calibration': 'C00', # TODO hardcoded
                   'maximum frequency': maximum_frequency, # TODO hardcoded
-                  'start_ISO_time':human_readable_start_time} # TODO metterlo come attibuto del singolo spettrogramma
+                  'start_ISO_time':human_readable_start_time} # TODO metterlo come attibuto del singolo spettrogramma (e levarlo dal file complessivo)
     
     spectrogram = xarray.DataArray(data=numpy.expand_dims(numpy.transpose(selected_power_spectrum), axis=-1), 
                                    dims=coordinate_names, 
@@ -331,7 +331,7 @@ def process_folder(path):
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-def mat_to_netCDF4(detector_paths):i
+def mat_to_netCDF4(detector_paths):
     pass
 
 # LIGO Hanford
@@ -350,12 +350,27 @@ file_list = numpy.transpose(numpy.array([H_mat_files, L_mat_files]))
 
 # TODO sperando che i files abbiano una corrispondenza 1 a 1 tra i 2 detector
 # TODO farlo con numpy.apply_along_axis e funzione vettoriale di lettura
+# TODO magari rendere parallela questa elaborazione
 for file_H, file_L in file_list:
         ds_H = process_file(file_H)
         ds_L = process_file(file_L)
         dataset = xarray.concat(objs=[ds_H, ds_L], dim='detector')
-        # TODO eventuale preprocessing per creare variabile globally_science_ready
+        
+        # check if all detectors are in science mode
+        globaly_science_ready = dataset.locally_science_ready.all(dim='detector')
+        dataset.update({'globaly_science_ready': globaly_science_ready})
+        
+        print('Saving /storage/users/Muciaccia/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time)) # TODO hardcoded
+        
         dataset.to_netcdf('/storage/users/Muciaccia/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time), format='NETCDF4') # TODO hardcoded # TODO non crea da solo le sottocartelle
+
+
+
+exit()
+
+# "256" è la banda di frequenza, perché va da -128 a +128 perché la trasformata di Fourier crea anche frequenze negative
+# banda_completa = 1/subsampling_time
+# banda_positiva = 1/2 * banda_completa # la banda positiva va da 0 a 128 Hz
 
 # TODO vedere se gli spettri selezionati sono aumentati ottimizzando i tagli ad occhio
 
@@ -377,8 +392,6 @@ LIGO_Livingston_complete_dataset = process_folder(LIGO_Livingston_data_dir)
 RGB_dataset = xarray.concat(objs=[LIGO_Hanford_complete_dataset, LIGO_Livingston_complete_dataset], dim='detector')
 # TODO rendere la dimensione Categorical invece che Object
 
-# TODO invece che flag, ha più senso importare science_ready, perché più immadiatamente comprensibile a chi legge
-
 globaly_science_ready = RGB_dataset.locally_science_ready.all(dim='detector') # check if all detectors are in science mode
 RGB_dataset.update({'globaly_science_ready': globaly_science_ready})
 #numpy.any(copia_flag, axis=1)
@@ -391,14 +404,21 @@ RGB_dataset.to_netcdf('~/Desktop/RGB_dataset.netCDF4', format='NETCDF4')
 
 #######################
 
-convert_mat_to_netCDF4(input_file_or_folder, output_folder)
+# convert_mat_to_netCDF4(input_file_or_folder, output_folder)
 
-load_the_various_datasets_in_chunks_in_parallel
-preprocess_data
-save_the_big_dataset
-reload_it_in_chunks
+# load_the_various_datasets_in_chunks_in_parallel
+# preprocess_data
+# save_the_big_dataset
+# reload_it_in_chunks
 
 #######################
+
+a = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C00/128Hz/*.netCDF4') # hardcoded # TODO non legge le sottocartelle
+
+a.globaly_science_ready[a.globaly_science_ready.values == True]
+
+# TODO eliminare attributo start_ISO_time
+selected_comtinuous_dataset = a.where(a.globaly_science_ready == True, drop=True)
 
 a = xarray.open_dataset('~/Desktop/RGB_dataset.netCDF4')
 
