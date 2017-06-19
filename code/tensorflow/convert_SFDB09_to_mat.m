@@ -73,7 +73,7 @@ function convert_SFDB09_to_mat(path, output_folder) % TODO mettere il default ou
             fft_interlaced = true;
         end
         
-        reduction_factor = header.red(1); % 128 (express how much the autoregressive spectrum is subsampled with respect to the FFT. so here the FFT is averaged for 128 time intervals)
+        reduction_factor = header.red(1); % 128 (expresses how much the autoregressive spectrum is subsampled with respect to the FFT. so here the FFT is averaged for 128 time intervals)
         
         fft_lenght = header.tbase(1);
         
@@ -132,7 +132,7 @@ function convert_SFDB09_to_mat(path, output_folder) % TODO mettere il default ou
         starting_fft_frequency = header.frinit(1);
         
         starting_fft_sample_index = header.firstfrind(1);
-        % if the FFT do not start from frequency 0, it is the first frequency index
+        % if the FFT do not start from frequency 0, it indicates the first frequency index
         % the index refers to the number of samples, not to frequency (in opposition to starting_fft_frequency)
         
         periodogram = single(cell2mat(periodogram));
