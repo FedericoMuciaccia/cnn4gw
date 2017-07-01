@@ -8,25 +8,38 @@ import tflearn
 # import the dataset
 # TODO check how to efficiently read data in pure tensorflow
 # TODO usare un formato dati più standard e direttamente leggibile in tensorflow
-data = numpy.load('../../../GENERATED_clean_data.npy')
+#data = numpy.load('../../../GENERATED_clean_data.npy')
 # TODO don't load everything in memory with huge datasets
 # TODO trainX, trainY, testX, testY = mnist.load_data(one_hot=True)
 
 # TODO vedere se su tensorflow si può evitare il canale del grigio per le immagini biancoonero
-number_of_samples, image_width, image_height, channels = data['image'].shape
-image_shape = image_width, image_height, channels # rows, columns, channels
+#number_of_samples, image_width, image_height, channels = data['image'].shape
+#image_shape = image_width, image_height, channels # rows, columns, channels
 
-train_set = data[data['validation']==0]
-test_set = data[data['validation']==1]
-train_images = train_set['image']
-train_classes = train_set['class']
-validation_images = test_set['image']
-validation_classes = test_set['class']
+#train_set = data[data['validation']==0]
+#test_set = data[data['validation']==1]
+#train_images = train_set['image']
+#train_classes = train_set['class']
+#validation_images = test_set['image']
+#validation_classes = test_set['class']
+
+N = 1000
+image_shape = [1024, 128, 3]
+
+# TODO use tflearn dask out-of-memory dataset
+
+train_images = numpy.single(numpy.random.rand(N, *image_shape))
+train_classes = numpy.single(numpy.round(numpy.random.rand(N)))
+validation_images = numpy.single(numpy.random.rand(int(N/100), *image_shape))
+validation_classes = numpy.single(numpy.round(numpy.random.rand(int(N/100))))
+
+
+
 
 # TODO slim.dataset slim.data_decoder
 
 # free some memory space # TODO tutto incluso in funzione read_data()
-del data
+#del data
 
 # TODO data augmentation?
 
@@ -61,8 +74,8 @@ number_of_classes = 2
 
 
 # TODO not memory efficient
-train_x = tf.constant(train_images)
-test_x = tf.constant(validation_images)
+#train_x = tf.constant(train_images)
+#test_x = tf.constant(validation_images)
 # one_hot endcoding:
 # 1 -> [0,1]
 # 0 -> [1,0]
@@ -111,7 +124,8 @@ def neural_network(images): #, weights, biases):
     # convolutional part
     # TODO tf.slim.repeat
     convolutional_layers = 5
-    output_features = [8,8,16,16,32]
+    #output_features = [8,8,16,16,32]
+    output_features = [8,8,8,8,8]
     kernel_sizes = [[3,3],[3,3],[3,3],[3,3],[3,3]]
     # TODO tf.contrib.slim.repeat
     # TODO vedere cos'è che fa parire il loss da livelli pazzeschi (tipo 10000)
@@ -330,6 +344,8 @@ tf.summary.scalar('accuracy', accuracy)
 # Checkpoints are binary files in a proprietary format which map variable names to tensor values. # TODO ???
 
 # with sess.as_default():
+
+# TODO forse con la nuova versione ci si può fermare già qui
 
 # launch the graph
 with tf.Session() as sess: # TODO with

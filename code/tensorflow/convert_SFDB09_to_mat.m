@@ -184,7 +184,11 @@ function convert_SFDB09_to_mat(path, output_folder) % TODO mettere il default ou
         convert_single_file(file_path, output_folder);
     end
     % the compressed .mat output file is 500 times smaller than the original one if the data are zeros (data missing or flagged)
-end
 
+    % TODO rimuovere
+    % convert_SFDB09_to_mat('/storage/pss/ligo_h/sfdb/O2/C01/128/', '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/')
+    % convert_SFDB09_to_mat('/storage/pss/ligo_l/sfdb/O2/C01/128/', '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/')
+
+end
 
 

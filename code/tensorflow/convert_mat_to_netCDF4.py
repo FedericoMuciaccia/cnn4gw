@@ -2,6 +2,7 @@
 import numpy
 import xarray
 import scipy.io
+import scipy.stats
 import matplotlib
 from matplotlib import pyplot
 import astropy.time
@@ -24,8 +25,8 @@ import glob
 
 #altro_path = './dati_di_prova/altri/L1:GDS-CALIB_STRAIN_20161228_110935.SFDB09'
 
-file_path = altro_path = '/storage/pss/ligo_l/sfdb/O2/128/L1:GDS-CALIB_STRAIN_20161209_120255.SFDB09.mat'
-
+file_path = altro_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/01-Apr-2017 01:07:58.000000.mat'
+H_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/01-Apr-2017 01:07:58.000000.mat'
 
 # TODO scipy does not support v7.3 mat-files
 # matlab --v7.3 files are hdf5 datasets
@@ -132,12 +133,20 @@ def process_file(file_path):
     # TODO 1/sqrt
     total_normalization = numpy.sqrt(2)*s['normalization_factor']*s['window_normalization']*numpy.sqrt(1 - percentage_of_zeros)
     
-    scaling_factor = s['scaling_factor'] # arbitrary factor used sometimes to rescale the data
+    # scaling_factor = s['scaling_factor'] # arbitrary factor used sometimes to rescale the data
     
     # TODO ex memory error
     # TODO valori diversi se si mette all'esterno il quadrato della normalizzazione
     power_spectrum = numpy.square(numpy.abs(s['fft_data']*total_normalization))#*scaling_factor
+    # don't worry if an overflow RuntimeWarning will be printed by numpy: see below
     # TODO fft unilatera?
+    
+    #total_normalization = total_normalization.astype(numpy.float64)
+    #total_normalization = numpy.double(total_normalization)
+    # float64 slows down computation and cannot be handled by GPU
+    # so we are forced to take into account the possibility of overflow and truncation errors (RuntimeWarning: overflow)
+    # replace the eventual infinities with the maximum float32 number
+    power_spectrum[numpy.isinf(power_spectrum)] = numpy.finfo(numpy.float32).max # float32_max = 3.4028235e+38
     
     # autoregressive_spectrum and periodogram are stored in the file as square roots, so we need to make the square of them
     autoregressive_spectrum = numpy.square(s['autoregressive_spectrum'])#*scaling_factor
@@ -168,18 +177,18 @@ def process_file(file_path):
     # in this way we do not waste good samples that have minor problems outside the region of interst
     
     # all-empty FFTs are immediately discarded 
-    is_empty = numpy.all(selected_power_spectrum == 0, axis=1) # zeros in the frequency (Fourier) space
+    is_empty = numpy.all(selected_power_spectrum == 0, axis=1) # all zeros in the frequency (Fourier) domain
+    is_not_empty = numpy.logical_not(is_empty)
+    
+    has_not_many_temporal_holes = percentage_of_zeros < 0.2 # less than 20% zeros in the time domain
     
     
+    #goods = [16, 17, 18, 19, 20, 21, 63, 64, 75, 76, 77, 82, 83, 94]
     
-    
-    
-    goods = [16, 17, 18, 19, 20, 21, 63, 64, 75, 76, 77, 82, 83, 94]
-    
-    # TODO condizione sul percentage_of_zeros dei dati nel dominio del tempo
     # TODO percentage_of_zeros[goods]
-    
-    
+    # TODO la condizione sulla differenza percentuale tra spettro autoregressivo e periodogramma mi sembra quella più solida e generale per essere future-proof e per tener conto dei miglioramenti nel tempo del rumore.
+    # TODO NON è però abbastanza: rimangono degli spettri spuri
+    # TODO sui picchi però c'è sempre una differenza, per cui forse sarebbe indicato fare prima il whitening
     
     
     
@@ -187,29 +196,61 @@ def process_file(file_path):
     # the periodogram can be higher than the autoregressive spectrum, because it suffers when there are bumps and unwanted impulses in the time domain
     # the median is more robust than the average
     autoregressive_spectrum_median = numpy.median(selected_autoregressive_spectrum, axis=1)
-    absolute_tolerance = 1e-7 # TODO fine tuned (seguendo i risultati della valutazione fatta ad occhio) (sarebbe meglio mettere differenza relativa, per essere maggiormente future-proof)
-    is_in_the_usual_range = numpy.isclose(autoregressive_spectrum_median, 6.5e-7, atol=absolute_tolerance) # (6.5 ± 1) * 10^-7
-    is_out_of_usual_range = numpy.logical_not(is_in_the_usual_range)
-    is_empty_or_unusual = numpy.logical_or(is_empty, is_out_of_usual_range)
+    #absolute_tolerance = 1e-7 # TODO fine tuned (seguendo i risultati della valutazione fatta ad occhio) (sarebbe meglio mettere differenza relativa, per essere maggiormente future-proof)
+    #is_in_the_usual_range = numpy.isclose(autoregressive_spectrum_median, 6.5e-7, atol=absolute_tolerance) # (6.5 ± 1) * 10^-7
+    #is_out_of_usual_range = numpy.logical_not(is_in_the_usual_range)
+    #is_empty_or_unusual = numpy.logical_or(is_empty, is_out_of_usual_range)
+    # TODO farlo con numpy.any()
     
     # autoregressive_spectrum and periodogram must be more or less the same in this flat area
     # they are different in the peaks, because by construction the autoregrerrive mean ignores them
     # the autoregressive_spectrum can follow the noise nonstationarities
     periodogram_median = numpy.median(selected_periodogram, axis=1)
-    median_difference = autoregressive_spectrum_median - periodogram_median
-    has_discrepancies = numpy.abs(median_difference) >= 1e-5 # max_difference = 10^-5 # TODO fine tuned (sarebbe meglio mettere differenza relativa, per essere maggiormente future-proof)
+    #median_difference = autoregressive_spectrum_median - periodogram_median
+    #has_discrepancies = numpy.abs(median_difference) >= 1e-5 # max_difference = 10^-5 # TODO fine tuned (sarebbe meglio mettere differenza relativa, per essere maggiormente future-proof)
     
-    is_flagged = numpy.logical_or(is_empty_or_unusual, has_discrepancies) # is_empty | is_out_of_usual_range | has_discrepancies
-    is_science_ready = numpy.logical_not(is_flagged)
+    #is_flagged = numpy.logical_or(is_empty_or_unusual, has_discrepancies) # is_empty | is_out_of_usual_range | has_discrepancies
+    #is_science_ready = numpy.logical_not(is_flagged)
     # TODO farlo con numpy.any
+        
+    # TODO il valore basale del rumore è diverso per tutti e 3 i detector
+    is_consistent = numpy.isclose(periodogram_median, autoregressive_spectrum_median, rtol=0.1) # relative_tolerance = 10% # TODO fine tuned
+    # TODO MA gli vanno levati gli is_empty (perché la tolleranza relativa con gli zeri ha problemi) (is_close and not is_empty)
+    # TODO new elementwise comparison: numpy.equal
     
-    clean_power_spectrum = power_spectrum[is_science_ready]
-    clean_autoregressive_spectrum = autoregressive_spectrum[is_science_ready]
-    clean_periodogram = periodogram[is_science_ready]
+    # la mediana è più resistente della media rispetto alla presenza di forti outliers
+    # median: 'middle' value
+    # mode: most common value
+    # extreme outliers change the values of mean and variance
     
-    clean_selected_power_spectrum = selected_power_spectrum[is_science_ready]
-    clean_selected_autoregressive_spectrum = selected_autoregressive_spectrum[is_science_ready]
-    clean_selected_periodogram = selected_periodogram[is_science_ready]
+    # l'autoregressive_spectrum segue meglio i dati rispetto al periodogramma
+    # il secondo quartile è la mediana dai dati
+    # interquartile_ratio/2 è l'equivalente della sigma (standard deviation) ma al 50% invece che al 68%
+    goodness_constraints = numpy.all([is_not_empty, has_not_many_temporal_holes, is_consistent], axis=0) # check if all conditions are satisfied (like with logical and)
+    
+    # if there isn't any good FFT (that is: if all FFTs are bad)
+    # (this if statement is required because in the calculation of the median we cannot divide by zero)
+    if numpy.all(goodness_constraints == False): #if not numpy.any(goodness_constraints):
+        is_science_ready = goodness_constraints # all False
+    else:
+        middle_value = numpy.median(autoregressive_spectrum_median[goodness_constraints])
+        is_in_the_usual_range = numpy.isclose(autoregressive_spectrum_median, middle_value, rtol=0.5) # relative_tolerance = 50% # TODO fine tuned
+
+        #numpy.all([is_consistent, is_not_empty], axis=0)
+        is_science_ready = numpy.logical_and(goodness_constraints, is_in_the_usual_range)
+    is_flagged = numpy.logical_not(is_science_ready)
+    
+        
+    
+    
+    
+    #clean_power_spectrum = power_spectrum[is_science_ready]
+    #clean_autoregressive_spectrum = autoregressive_spectrum[is_science_ready]
+    #clean_periodogram = periodogram[is_science_ready]
+    
+    #clean_selected_power_spectrum = selected_power_spectrum[is_science_ready]
+    #clean_selected_autoregressive_spectrum = selected_autoregressive_spectrum[is_science_ready]
+    #clean_selected_periodogram = selected_periodogram[is_science_ready]
     
     gps_time = astropy.time.Time(val=s['gps_time'], format='gps', scale='utc')
     gps_time_values = gps_time.value
@@ -218,57 +259,94 @@ def process_file(file_path):
     # time of the first FFT of this file
     human_readable_start_time = iso_time_values[0]
     
-    clean_iso_time_values = iso_time_values[is_science_ready]
+    #clean_iso_time_values = iso_time_values[is_science_ready]
     
     detector = s['detector']
 
-    fft_index = s['fft_index']
+    fft_index = s['fft_index'] - 1 # index in python start from 0 instead on 1, as in Matlab
     print('Processing', file_path)
     print('Good spectra:', len(fft_index[is_science_ready]),'out of',len(fft_index))
     
-    # TODO controllare che il valore medio sul plateau (10^-6) sia consistente con quanto scritto nella mia tesina
+    # TODO controllare che il valore medio sul plateau (10^-6) sia consistente con quanto scritto nella mia tesina    
+    
+    
+    
+    
+    
+    #pyplot.hist(numpy.log(numpy.median(clean_selected_periodogram, axis=1)), bins=100)
+    #pyplot.show()
+    
     
     plot_it = False
     
     if plot_it:
-        for spectrum in clean_selected_power_spectrum:
+        for spectrum in selected_power_spectrum[is_science_ready]: # clean_selected_power_spectrum
             pyplot.figure()
             pyplot.grid()
             pyplot.semilogy(selected_frequencies, spectrum)
+            pyplot.show()
+    
+    plot_it = False
     
     if plot_it:
-        for i in range(len(fft_index[is_science_ready])): # TODO iterare direttamente su fft_index usando xarray
+        #for i in range(len(fft_index[is_science_ready])): # TODO iterare direttamente su fft_index usando xarray
+        #@numpy.vectorize # TODO BUG: ripete il primo elemento
+        def my_plot_figure(i):
+            print(i)
             fig, [total, zoom] = pyplot.subplots(nrows=2, ncols=1, figsize=[10,10])
             #fig.suptitle(...)
             total.grid()
             zoom.grid()
-            total.semilogy(frequencies, clean_power_spectrum[i], 
+            total.semilogy(frequencies, power_spectrum[i], 
                            label='Normalized Power FFT')
-            total.semilogy(subsampled_frequencies, clean_autoregressive_spectrum[i], 
+            total.semilogy(subsampled_frequencies, autoregressive_spectrum[i], 
                            color='#cc0000', label='autoregressive spectrum')
-            total.semilogy(subsampled_frequencies, clean_periodogram[i], 
+            total.semilogy(subsampled_frequencies, periodogram[i], 
                            color='black', label='periodogram')
             
             # draw a rectangle to highlight the zoomed part # TODO zorder
             total.add_patch(matplotlib.patches.Rectangle(xy=[80, 1e-12 ], width=120-80, height=1e-2-1e-12, 
                                                          fill=False, alpha=1.0, linewidth=3, edgecolor="darkgrey"))
             
-            zoom.semilogy(selected_frequencies, clean_selected_power_spectrum[i], 
+            zoom.semilogy(selected_frequencies, selected_power_spectrum[i], 
                           label='Normalized Power FFT')
-            zoom.semilogy(selected_subsampled_frequencies, clean_selected_autoregressive_spectrum[i], 
+            zoom.semilogy(selected_subsampled_frequencies, selected_autoregressive_spectrum[i], 
                           color='#cc0000', label='autoregressive spectrum')
-            zoom.semilogy(selected_subsampled_frequencies, clean_selected_periodogram[i], 
+            zoom.semilogy(selected_subsampled_frequencies, selected_periodogram[i], 
                           color='black', label='periodogram')
             total.set_xlabel('Frequency [Hz]')
             zoom.set_xlabel('Frequency [Hz]')
             # TODO total.set_xlabel(...) # TODO amplitude spectral density VS strain VS 1/sqrt(Hz) VS 1/Hz
             # TODO zoom.set_xlabel(...)
-            total.set_title('{} O2 C00 {} (0 Hz - 128 Hz)'.format(detector, clean_iso_time_values[i]), size=16) # hardcoded
+            total.set_title('{} O2 C01 {} (0 Hz - 128 Hz)'.format(detector, iso_time_values[i]), size=16) # TODO hardcoded
             #zoom.set_title('Zoomed spectrum: (80 Hz - 120 Hz)') # TODO
             # TODO mettere limiti in x da 0 a 128 e farli combaciare col bordo figura
             total.legend(loc='upper right')
+            pyplot.show()
+        
+        my_plot_figure = numpy.frompyfunc(my_plot_figure, 1,1) # TODO hack per vettorializzare
+        #print(fft_index[is_science_ready])
+        my_plot_figure(fft_index[is_science_ready])
+        #my_plot_figure(63)
+        # good_discarded = 97? // 48 95
+        # bad_selected = 66? //
+        # dunque questi criteri di selezione possono portare un 1% o più di falsi positivi e falsi negativi
+        # TODO ottimizzare i tagli (oppure farli fare direttamente alla macchina)
         
         
+    
+    # TODO BUG di numpy: si ripete il primo indice
+    #@numpy.vectorize
+    #def plot_figure(fft_index): # TODO così dovrebbe essere vettoriale
+    #    print(fft_index)
+    #plot_array = numpy.frompyfunc(plot_figure, 1,1)
+    
+    # TODO BUG di python 
+    # la definizione di funzioni dovrebbe essere effettuata tramite istanziazioni della classe function (tipo javascript?), che deve poter essere sostituita con altri tipi di classi più raffinate come le vectorized_function (numpy ufunc)
+    
+    
+    
+    
     # set all the flagged values to zero
     power_spectrum[is_flagged] = 0
     selected_power_spectrum[is_flagged] = 0
@@ -285,9 +363,9 @@ def process_file(file_path):
     coordinate_names = ['frequency','GPS_time','detector'] # 3 detectors, so we are preparing an RGB image
     coordinate_values = [selected_frequencies, gps_time_values, [detector]]
     attributes = {'FFT_lenght': fft_lenght,
-                  'observing run': 'O2', # TODO hardcoded (estrarlo dal file path)
-                  'calibration': 'C00', # TODO hardcoded
-                  'maximum frequency': maximum_frequency, # TODO hardcoded
+                  'observing_run': 'O2', # TODO hardcoded (estrarlo dal file path)
+                  'calibration': 'C01', # TODO hardcoded
+                  'maximum_frequency': maximum_frequency, # TODO hardcoded
                   'start_ISO_time':human_readable_start_time} # TODO metterlo come attibuto del singolo spettrogramma (e levarlo dal file complessivo)
     # TODO mettere anche tutti gli altri attributi interessanti come are_fft_interlaced = True
     
@@ -304,6 +382,27 @@ def process_file(file_path):
     
     return dataset
 
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#H_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/24-Dec-2016 08:10:23.000000.mat'
+
+#/home/federico/.local/lib/python3.5/site-packages/numpy/core/fromnumeric.py:2909: RuntimeWarning: Mean of empty slice.
+#  out=out, **kwargs)
+#/home/federico/.local/lib/python3.5/site-packages/numpy/core/_methods.py:80: RuntimeWarning: invalid value encountered in true_divide
+#  ret = ret.dtype.type(ret / rcount)
+
+#file_path = L_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/05-Mar-2017 18:48:14.000000.mat'
+
+#convert_mat_to_netCDF4.py:140: RuntimeWarning: overflow encountered in square
+#  power_spectrum = numpy.square(numpy.abs(s['fft_data']*total_normalization))#*scaling_factor
+
+
+
+#a = process_file(L_path)
+
+#exit()
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # TODO mettere cartella di destinazione quando si elaborano e convertono tutti i file
@@ -318,16 +417,28 @@ def process_folder(path):
 #        folder_path = path
     folder_path = path
     
-    mat_files = glob.glob(folder_path + '*.mat') # TODO non funziona con la data_dir generale
+    # TODO funziona!!!
+    mat_files = glob.glob(folder_path + '**/*.mat', recursive=True) # TODO segue correttamente anche i link simbolici (dunque attenzione ai loop)
     mat_files = sorted(mat_files) # TODO per cercare di garantire la continuità dei valori di GPS_time
     
-    datasets = []
-    for mat_file in mat_files:
-        datasets.append(process_file(mat_file))
-    
-    complete_dataset = xarray.concat(objs=datasets, dim='GPS_time')
+#    datasets = []
+    for mat_file in mat_files: # TODO questo ciclo è totalmente parallelizzabile
+#        datasets.append(process_file(mat_file))
+        dataset = process_file(mat_file)
+        detector = str(numpy.squeeze(dataset.detector.values))
+        print('Saving /storage/users/Muciaccia/netCDF4/O2/C01/128Hz/{} {}.netCDF4'.format(detector, dataset.start_ISO_time)) # TODO hardcoded
+        
+        dataset.to_netcdf('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/{} {}.netCDF4'.format(detector, dataset.start_ISO_time), format='NETCDF4') # TODO hardcoded # TODO non crea da solo le sottocartelle
+#    complete_dataset = xarray.concat(objs=datasets, dim='GPS_time')
+#    return complete_dataset
 
-    return complete_dataset
+
+# TODO ricontrollare criteri di selezione con la nuova calibrazione
+# TODO anche perché i vari detector possono avere valori basali differenti, che quindi fanno scartare la mediana (penso soprattutto per Hanford)
+
+process_folder('/storage/users/Muciaccia/mat/')
+
+exit()
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -336,10 +447,10 @@ def mat_to_netCDF4(detector_paths):
     pass
 
 # LIGO Hanford
-H_data_dir = '/storage/users/Muciaccia/mat/O2/C00/128Hz/H/' # TODO hardcoded
+H_data_dir = '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/' # TODO hardcoded
 
 # LIGO Livingston
-L_data_dir = '/storage/users/Muciaccia/mat/O2/C00/128Hz/L/' # TODO hardcoded
+L_data_dir = '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/' # TODO hardcoded
 
 # TODO iterare sui 3 detector
 H_mat_files = sorted(glob.glob(H_data_dir + '*.mat'))
@@ -362,7 +473,7 @@ for file_H, file_L in file_list:
         
         # check if all detectors are in science mode
         globally_science_ready = dataset.locally_science_ready.all(dim='detector')
-        dataset.update({'globally_science_ready': globally_science_ready})
+        dataset.update({'globally_science_ready': globally_science_ready}) # TODO inplace=True
         
         print('Saving /storage/users/Muciaccia/netCDF4/O2/C00/128Hz/{}.netCDF4'.format(dataset.start_ISO_time)) # TODO hardcoded
         
@@ -370,7 +481,13 @@ for file_H, file_L in file_list:
 
 # TODO controllare i fare float64 per i tempi e per le frequenze
 
-
+# TODO posticipare l'operazione di calcolo di globallu_science_ready perché per ragioni di spazio non riesco a salvare entrambi i dataset contemporaneamente sul disco
+# TODO oppure chiamare da python3 il Matlab engine e convertire in .netCDF4 ogni file singolarmente, evitando dunque di dover salvare i file .mat su disco
+# TODO
+# data_preprocessing.py
+#     per ogni singolo file:
+#         Matlab engine: SFDB09 -> mat   
+#         import convert_to_netCDF4: mat -> netCDF4
 
 exit()
 

@@ -1,7 +1,7 @@
 
 import numpy
-import scipy
 import xarray
+import astropy.time
 import matplotlib
 from matplotlib import pyplot
 
@@ -24,9 +24,27 @@ from matplotlib import pyplot
 
 # TODO poi creare peakmap monocromo per comparare le performances col caso del rumore bianco gaussiano
 
+# TODO
+# PAY ATTENTION: GPS_time duration must here be the same for both detectors # TODO fatto a mano # TODO risolverlo con le concatenazioni coi NaN
+
 # TODO load in chunks (out-of-memory computation) # TODO controllare se la lettura in chuncks viene fatta automaticamente con dataset grandi
 # viene automaticamente fatta lla concatenazione sui tempi: comodissimo!
-a = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C00/128Hz/*.netCDF4', chunks={'GPS_time': 100}) # hardcoded # TODO non legge le sottocartelle
+dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/*.netCDF4')#, chunks={'GPS_time': 100}) # hardcoded # TODO non legge le sottocartelle
+
+compat : {'identical', 'equals', 'broadcast_equals',
+          'no_conflicts'}, optional
+    String indicating how to compare variables of the same name for
+    potential conflicts when merging:
+
+    - 'broadcast_equals': all values must be equal when variables are
+      broadcast against each other to ensure common dimensions.
+    - 'equals': all values and dimensions must be the same.
+    - 'identical': all values, dimensions and attributes must be the
+      same.
+    - 'no_conflicts': only values which are not null in both datasets
+      must be equal. The returned dataset then contains the combination
+      of all non-null values.
+
 
 #a.globally_science_ready[a.globally_science_ready.values == True]
 
@@ -39,7 +57,9 @@ a = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C00/128Hz/*.netCD
 
 #locally_selected_dataset = a.where(a.locally_science_ready.any(dim='detector'))
 
-L_dataset = a.where(a.detector == 'LIGO Livingston', drop=True)
+L_dataset = dataset.where(dataset.detector == 'LIGO Livingston', drop=True)
+
+H_dataset = dataset.where(dataset.detector == 'LIGO Hanford', drop=True)
 
 #selected_L_dataset = L_dataset.where(L_dataset.locally_science_ready == True)
 
@@ -53,23 +73,53 @@ time_ticks_required = 2*int(numpy.ceil(required_time/time_delta)) # approssimazi
 
 nan_tolerance = 0.3 # 30%
 
+time_ticks_required = 100
+
 kernel = numpy.ones(time_ticks_required)
-target = L_dataset.locally_science_ready.values.flatten()
-goodness_indicator = scipy.convolve(kernel, target, mode='same')/time_ticks_required
+target = H_dataset.locally_science_ready.values.flatten()
+goodness_indicator = numpy.convolve(kernel, target, mode='same')/time_ticks_required
 #pyplot.hist(goodness_indicator, bins=time_ticks_required, range=[0,1])
 
 #is_sufficiently_dense = goodness_indicator >= 1 - nan_tolerance
 
+
+# # TODO BUG: 5_days_stability_indicator non va bene come nome perché include un numero
+# lambda_convolution = lambda target: numpy.convolve(kernel, target, mode='same')/100 # TODO hack terribile perché non si può applicare la convoluzione rispetto a un dato asse
+# stability_indicator = numpy.apply_along_axis(lambda_convolution, axis=0, arr=dataset.locally_science_ready.values)
+# 
+# stability_indicator = xarray.DataArray(data=stability_indicator, 
+#                                        dims=['GPS_time','detector'], 
+#                                        coords=[gps_time_values, [detector]])
+# 
+# dataset.update({'stability_indicator': (['GPS_time','detector'], stability_indicator)})
+
+
+month = 60*60*24*30 # in seconds (approximate value)
+month = 2 * month/8192 # in interlaced fft
+iso_time_ticks = ['2016-11-01', '2016-12-01', '2017-01-01', '2017-02-01', '2017-03-01']
+iso_time_ticks = astropy.time.Time(val=iso_time_ticks, format='iso', scale='utc')
+gps_time_ticks = iso_time_ticks.gps
+
+# effettivamente si comincia da 2016-11-30 00:29:35.000
+time_ticks = numpy.arange(6)*month
+month_labels = ['Dec 2016', 'Jan 2017', 'Feb 2017', 'Mar 2017', 'Apr 2017', 'May 2017']
+
+
 pyplot.figure(figsize=[15,10])
-pyplot.plot(goodness_indicator, label='LIGO Livingston O2 C00') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
-pyplot.axhline(y=1-nan_tolerance, color='green')
-pyplot.title("Detector's 5-day time stability")
-pyplot.xlabel('GPS time')
+pyplot.plot(goodness_indicator, label='LIGO Hanford O2 C01') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo) # TODO hardcoded
+pyplot.axhline(y=1-nan_tolerance, color='green', label='acceptable level')
+pyplot.title("detector's 5-day time stability")
+pyplot.xlabel('time') # GPS time
+pyplot.xticks(time_ticks, month_labels)
 pyplot.ylabel('5-day fft density') # TODO vedere nome migliore
 pyplot.ylim([0,1])
-pyplot.legend(loc='upper right')
+pyplot.legend(loc='upper right', frameon=False)
 pyplot.show()
 # TODO mettere legenda con due label con detector e caratteristiche del run e tick temporali coi mesi
+
+
+exit()
+
 
 # TODO fare tassellazione a pezzi di 100
 
@@ -144,7 +194,9 @@ def display_raw_image(image):
     pyplot.figure(figsize=[10,25.6])
     pyplot.imshow(image, cmap='gray', norm=matplotlib.colors.LogNorm(vmax=1e-2, vmin=1e-12), aspect='auto', origin="lower", interpolation="none") # TODO controllare i livelli di minimo e massimo del rumore
 #pyplot.colorbar()
+    #pyplot.savefig('/home/federico/Desktop/possibile_segnale.tif')
     pyplot.show()
+    
 # TODO le strisce bianche rimangono bianche anche invertendo la colormap
 # TODO invertendo la colormap però l'immagine diventa globalmente più scura, segno che la scala di grigio non è correttamente centrata
 # TODO le immagini pari hanno una struttura di linee bianche, le immagini dispari hanno l'altra
@@ -152,6 +204,56 @@ def display_raw_image(image):
 #expanded_image = numpy.repeat(numpy.repeat(image, 5, axis=0), 5, axis=1)
 
 display_raw_image(splitted_images[100])
+pyplot.savefig('/home/federico/Desktop/possibile_segnale.tif')
+
+import skimage.io
+skimage.io.imsave('/home/federico/Desktop/possibile_segnale.tif', splitted_images[100])
+
+
+
+
+#N
+#conv
+#N-1
+#pool
+#(N-1)/2
+#
+#255
+#127
+#63
+#31
+#15
+#7
+#3
+#1*1*2 -> 2 -> 1
+#
+#si potrebbe mettere una convoluzione extra inziale dentro il blocco in modo da passare da 256*128 a 255*127 e poi fare dunque la sequenza corretta
+#
+#N
+#zeros
+#N+1
+#conv
+#N
+#pool
+#N/2
+#
+#256
+#128
+#64
+#32
+#16
+#8
+#4
+#2
+#1
+#MA con immagini piccole non ha alcun senso fare lo zero_padding
+
+def create_peakmap(image):
+    pass
+
+
+numpy.apply_along_axis
+
 
 # TODO fare istogramma valori per stabilire il grigio centrale dell'immagine
 
