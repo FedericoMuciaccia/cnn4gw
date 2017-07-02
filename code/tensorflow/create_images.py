@@ -29,21 +29,18 @@ from matplotlib import pyplot
 
 # TODO load in chunks (out-of-memory computation) # TODO controllare se la lettura in chuncks viene fatta automaticamente con dataset grandi
 # viene automaticamente fatta lla concatenazione sui tempi: comodissimo!
-dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/*.netCDF4')#, chunks={'GPS_time': 100}) # hardcoded # TODO non legge le sottocartelle
+# TODO non viene fatta bene la concatenzaione lungo GPS_time. TODO capire perché
+#dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/*.netCDF4')#, chunks={'GPS_time': 100}) # hardcoded # TODO non legge le sottocartelle
 
-compat : {'identical', 'equals', 'broadcast_equals',
-          'no_conflicts'}, optional
-    String indicating how to compare variables of the same name for
-    potential conflicts when merging:
 
-    - 'broadcast_equals': all values must be equal when variables are
-      broadcast against each other to ensure common dimensions.
-    - 'equals': all values and dimensions must be the same.
-    - 'identical': all values, dimensions and attributes must be the
-      same.
-    - 'no_conflicts': only values which are not null in both datasets
-      must be equal. The returned dataset then contains the combination
-      of all non-null values.
+H_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/LIGO Hanford*.netCDF4')
+L_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/LIGO Livingston*.netCDF4')
+# chunksize scelto automaticamente
+
+dataset = xarray.concat([H_dataset,L_dataset], dim='detector')
+
+
+# TODO in xarray.open_mfdataset attributes from the first dataset file are used for the combined dataset
 
 
 #a.globally_science_ready[a.globally_science_ready.values == True]
@@ -57,9 +54,9 @@ compat : {'identical', 'equals', 'broadcast_equals',
 
 #locally_selected_dataset = a.where(a.locally_science_ready.any(dim='detector'))
 
-L_dataset = dataset.where(dataset.detector == 'LIGO Livingston', drop=True)
+#L_dataset = dataset.where(dataset.detector == 'LIGO Livingston', drop=True)
 
-H_dataset = dataset.where(dataset.detector == 'LIGO Hanford', drop=True)
+#H_dataset = dataset.where(dataset.detector == 'LIGO Hanford', drop=True)
 
 #selected_L_dataset = L_dataset.where(L_dataset.locally_science_ready == True)
 
@@ -73,11 +70,22 @@ time_ticks_required = 2*int(numpy.ceil(required_time/time_delta)) # approssimazi
 
 nan_tolerance = 0.3 # 30%
 
-time_ticks_required = 100
+acceptable_percentage = 1 - nan_tolerance
 
-kernel = numpy.ones(time_ticks_required)
-target = H_dataset.locally_science_ready.values.flatten()
-goodness_indicator = numpy.convolve(kernel, target, mode='same')/time_ticks_required
+#time_ticks_required = 100
+
+def five_day_time_stability(data):
+    number_of_time_ticks = 128 # TODO
+    kernel = numpy.ones(number_of_time_ticks)
+    target = data
+    # TODO questa convoluzione è una sorta di running average (?)
+    stability_indicator = numpy.convolve(kernel, target, mode='same')/number_of_time_ticks
+    return stability_indicator
+# TODO apply_along_dimension with xarray
+
+#kernel = numpy.ones(time_ticks_required)
+#target = H_dataset.locally_science_ready.values.flatten()
+#goodness_indicator = numpy.convolve(kernel, target, mode='same')/time_ticks_required
 #pyplot.hist(goodness_indicator, bins=time_ticks_required, range=[0,1])
 
 #is_sufficiently_dense = goodness_indicator >= 1 - nan_tolerance
@@ -104,18 +112,93 @@ gps_time_ticks = iso_time_ticks.gps
 time_ticks = numpy.arange(6)*month
 month_labels = ['Dec 2016', 'Jan 2017', 'Feb 2017', 'Mar 2017', 'Apr 2017', 'May 2017']
 
+H_time_stability = five_day_time_stability(H_dataset.locally_science_ready.values.flatten())
+L_time_stability = five_day_time_stability(L_dataset.locally_science_ready.values.flatten())
+
+# find coincidences
+#dataset.locally_science_ready.notnull()
+globally_science_ready = dataset.locally_science_ready.all(dim='detector')
+# TODO BUG: numpy.nan conta come True
+
+combined_time_stability = five_day_time_stability(globally_science_ready.values)
 
 pyplot.figure(figsize=[15,10])
-pyplot.plot(goodness_indicator, label='LIGO Hanford O2 C01') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo) # TODO hardcoded
-pyplot.axhline(y=1-nan_tolerance, color='green', label='acceptable level')
-pyplot.title("detector's 5-day time stability")
+pyplot.plot(H_time_stability, label='LIGO Hanford') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
+pyplot.plot(L_time_stability, label='LIGO Livingston')
+pyplot.plot(combined_time_stability, label='both detectors together')
+pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
+pyplot.title('{} {} data stability on 5-days timescale'.format(dataset.observing_run, dataset.calibration))
 pyplot.xlabel('time') # GPS time
 pyplot.xticks(time_ticks, month_labels)
-pyplot.ylabel('5-day fft density') # TODO vedere nome migliore
+pyplot.ylabel('density of FFTs on 5-days timescale') # TODO vedere nome migliore
+#pyplot.xlim([0,5*month]) # TODO
 pyplot.ylim([0,1])
 pyplot.legend(loc='upper right', frameon=False)
 pyplot.show()
+#pyplot.savefig('time_stability.jpg', dpi=300)
 # TODO mettere legenda con due label con detector e caratteristiche del run e tick temporali coi mesi
+
+
+# TODO per ora cerco per semplicità il solo picco migliore
+good_index = numpy.argmax(combined_time_stability)
+good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
+#dataset.GPS_time.isel(good_slice, drop=True)
+#dataset.isel({'GPS_time':good_slice})
+# .isel .isel_points # TODO
+good_times = dataset.GPS_time.values[good_slice]
+# isel
+# TODO view VS copy (in numpy)
+#cutted_dataset = dataset.sel(GPS_time = good_times) # TODO ???
+cutted_dataset = dataset.isel(GPS_time = good_slice) # TODO ???
+
+#image_frequency_window = 0.4 # Hz # TODO 1024 punti
+image_frequency_window = 0.1 # Hz # TODO 256 punti
+frequency_interval = 128 # TODO hardcoded
+frequency_cuts = frequency_interval/image_frequency_window
+
+time_cuts = 1
+
+number_of_images = frequency_cuts * time_cuts
+
+joined_images = cutted_dataset.spectrogram.values
+
+# add the blue channel
+rows, columns, channels = joined_images.shape
+#RGB_median = 3e-07, 2e-07, 2.5e-07
+blue_image = 2.5e-7 * numpy.ones([rows, columns, 1])
+joined_RGB_images = numpy.concatenate([joined_images,blue_image], axis=-1)
+
+# TODO farlo direttamente con xarray, perché con numpy si riempe subito quasi tutta la memoria
+splitted_images = joined_RGB_images.reshape(-1, int(frequency_cuts), 128, int(time_cuts), 3)
+
+splitted_images = numpy.transpose(splitted_images, axes=[1,3,0,2,4])
+
+splitted_images = splitted_images.reshape(int(number_of_images), -1, 128, 3) # TODO qui il -1 si sa che è 256 oppure 1024
+
+image = splitted_images[0]
+
+# TODO rinormalizzare le immagini tra 0 e 1
+
+# log-normalization of the images
+# RGB pixels must be a float from 0 to 1
+# TODO controllare i livelli di minimo e massimo del rumore
+log_minimum = 20 # TODO col segno meno
+log_maximum = 10 # TODO col segno meno
+log_image = numpy.log(image) + log_minimum
+log_image = log_image/log_maximum
+# TODO BUG in python/numpy non c'è un modo elegante per rappresentare le parentesi nelle espressioni matematiche senza che vengano create inutili tuple
+#log_image[numpy.isinf(log_image)] = 0
+log_image[log_image < 0] = 0 # -inf < 0 = True
+log_image[log_image > 1] = 1 # TODO dopo il whitening non ci dovrebbero più essere problemi di dati fuori scala
+#pyplot.hist(log_image.flatten(), bins=100)
+#pyplot.show()
+
+pyplot.figure(figsize=[12.8,25.6])
+pyplot.imshow(log_image, aspect='auto', origin="lower", interpolation="none")
+#pyplot.savefig('/home/federico/Desktop/esempio_RGB.tif')
+pyplot.show()
+
+
 
 
 exit()
@@ -123,7 +206,7 @@ exit()
 
 # TODO fare tassellazione a pezzi di 100
 
-time_ticks_required = 100 # TODO valore semplice provvisorio
+time_ticks_required = 128 # TODO valore semplice provvisorio
 # fft_required = 100
 
 # tassellazione provvisoria, valida in regime di bassa densità
@@ -159,7 +242,7 @@ cutted_L_dataset = L_dataset.sel(GPS_time = good_times)
 
 
 image_frequency_window = 0.1 # Hz
-frequency_interval = 128 # hardcoded
+frequency_interval = 128 # TODO hardcoded
 frequency_cuts = frequency_interval/image_frequency_window
 
 time_cuts = len(slice_list) # rinominare good_indices
