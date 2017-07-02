@@ -1,8 +1,25 @@
 
+# Copyright (C) 2017  Federico Muciaccia (federicomuciaccia@gmail.com)
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import numpy
 import xarray
 import astropy.time
 import matplotlib
+#matplotlib.use('SVG')
 from matplotlib import pyplot
 
 
@@ -125,7 +142,7 @@ combined_time_stability = five_day_time_stability(globally_science_ready.values)
 pyplot.figure(figsize=[15,10])
 pyplot.plot(H_time_stability, label='LIGO Hanford') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
 pyplot.plot(L_time_stability, label='LIGO Livingston')
-pyplot.plot(combined_time_stability, label='both detectors together')
+pyplot.plot(combined_time_stability, label='all detectors together', color='#404040')
 pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
 pyplot.title('{} {} data stability on 5-days timescale'.format(dataset.observing_run, dataset.calibration))
 pyplot.xlabel('time') # GPS time
@@ -134,8 +151,9 @@ pyplot.ylabel('density of FFTs on 5-days timescale') # TODO vedere nome migliore
 #pyplot.xlim([0,5*month]) # TODO
 pyplot.ylim([0,1])
 pyplot.legend(loc='upper right', frameon=False)
-pyplot.show()
-#pyplot.savefig('time_stability.jpg', dpi=300)
+#pyplot.show()
+pyplot.savefig('time_stability.svg', dpi=300)
+pyplot.close()
 # TODO mettere legenda con due label con detector e caratteristiche del run e tick temporali coi mesi
 
 
@@ -193,12 +211,13 @@ log_image[log_image > 1] = 1 # TODO dopo il whitening non ci dovrebbero più ess
 #pyplot.hist(log_image.flatten(), bins=100)
 #pyplot.show()
 
-pyplot.figure(figsize=[12.8,25.6])
-pyplot.imshow(log_image, aspect='auto', origin="lower", interpolation="none")
-#pyplot.savefig('/home/federico/Desktop/esempio_RGB.tif')
-pyplot.show()
-
-
+pyplot.figure(figsize=[10,20]) # TODO capire perché non scala
+fig = pyplot.imshow(log_image, origin="lower", interpolation="none") # aspect='auto' or 'equal'
+#pyplot.axis('off')
+extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted()) # TODO brutto hack per non fargli mettere i bordi (che dovrebbe essere invece una cosa semplicissima
+pyplot.savefig('esempio_RGB.jpg', dpi=300, bbox_inches=extent) # oppure tiff. evitare png perché introduce parecchie corruzioni. svg purtroppo qui non supporta la non interpolazione
+pyplot.close()
+#pyplot.show()
 
 
 exit()
