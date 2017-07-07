@@ -52,10 +52,13 @@ from matplotlib import pyplot
 
 H_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/LIGO Hanford*.netCDF4')
 L_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/LIGO Livingston*.netCDF4')
-# chunksize scelto automaticamente
+# chunksize scelto automaticamente (quando si caricano file spezzettati)
 
-dataset = xarray.concat([H_dataset,L_dataset], dim='detector')
+# TODO fake Virgo dataset
+V_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/fake_Virgo_dataset.netCDF4', chunks={'GPS_time': 100})
+# TODO qui bisogna invece specificare il chunks_value manualmente
 
+dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
 
 # TODO in xarray.open_mfdataset attributes from the first dataset file are used for the combined dataset
 
@@ -131,6 +134,7 @@ month_labels = ['Dec 2016', 'Jan 2017', 'Feb 2017', 'Mar 2017', 'Apr 2017', 'May
 
 H_time_stability = five_day_time_stability(H_dataset.locally_science_ready.values.flatten())
 L_time_stability = five_day_time_stability(L_dataset.locally_science_ready.values.flatten())
+V_time_stability = five_day_time_stability(V_dataset.locally_science_ready.values.flatten())
 
 # find coincidences
 #dataset.locally_science_ready.notnull()
@@ -142,6 +146,8 @@ combined_time_stability = five_day_time_stability(globally_science_ready.values)
 pyplot.figure(figsize=[15,10])
 pyplot.plot(H_time_stability, label='LIGO Hanford') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
 pyplot.plot(L_time_stability, label='LIGO Livingston')
+# TODO mettere pure quella di Virgo
+# pyplot.plot(V_time_stability, label='Virgo')
 pyplot.plot(combined_time_stability, label='all detectors together', color='#404040')
 pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
 pyplot.title('{} {} data stability on 5-days timescale'.format(dataset.observing_run, dataset.calibration))
@@ -152,9 +158,10 @@ pyplot.ylabel('density of FFTs on 5-days timescale') # TODO vedere nome migliore
 pyplot.ylim([0,1])
 pyplot.legend(loc='upper right', frameon=False)
 #pyplot.show()
-pyplot.savefig('time_stability.svg', dpi=300)
+pyplot.savefig('/storage/users/Muciaccia/images/time_stability.svg', dpi=300)
 pyplot.close()
 # TODO mettere legenda con due label con detector e caratteristiche del run e tick temporali coi mesi
+# TODO mettere legenda in RGB, così come tutte le 3+1 (CMY + W) possibili combinazioni di detector simultanei
 
 
 # TODO per ora cerco per semplicità il solo picco migliore
@@ -166,25 +173,46 @@ good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
 good_times = dataset.GPS_time.values[good_slice]
 # isel
 # TODO view VS copy (in numpy)
-#cutted_dataset = dataset.sel(GPS_time = good_times) # TODO ???
-cutted_dataset = dataset.isel(GPS_time = good_slice) # TODO ???
+#good_dataset = dataset.sel(GPS_time = good_times) # TODO ???
+good_dataset = dataset.isel(GPS_time = good_slice) # TODO ???
 
-#image_frequency_window = 0.4 # Hz # TODO 1024 punti
-image_frequency_window = 0.1 # Hz # TODO 256 punti
-frequency_interval = 128 # TODO hardcoded
-frequency_cuts = frequency_interval/image_frequency_window
 
-time_cuts = 1
+## 327680 pixels along frequency axis
+## frequencies are from 80 Hz to 120 Hz
+#
+#frequency_pixels_in_the_whole_spectrogram = len(cutted_dataset.frequency)
+#
+#number_of_frequency_divisions = frequency_pixels_in_the_whole_spectrogram / image_frequency_pixels # TODO round the float value
+#
+##image_frequency_interval = 0.4 # Hz
+##image_frequency_interval = 0.1 # Hz
+#image_frequency_interval = total_frequency_interval / number_of_frequency_divisions
 
-number_of_images = frequency_cuts * time_cuts
+frequency_resolution = 1/dataset.FFT_lenght # TODO vedere se c'è il fattore 2 per le FFT interallacciate (non capisco come faccia a fare lo stesso risultato derivante del codice commentato qui sopra) (in effetti ogni pixel rappresenta una FFT. il fatto che ci siano le FFT interallacciate vuol dire che ci saranno il doppio dei pixel dantro un dato intervallo di frequenze, dunque ci dovrebbe comunque essere un fattore 2)
+image_frequency_pixels = 256 # TODO 1024
+image_frequency_interval = frequency_resolution * image_frequency_pixels # TODO ??? fattore 2?
+total_frequency_interval = 120 - 80 # TODO hardcoded
+number_of_frequency_divisions = total_frequency_interval / image_frequency_interval
 
-joined_images = cutted_dataset.spectrogram.values
+number_of_time_divisions = 1
 
-# add the blue channel
-rows, columns, channels = joined_images.shape
-#RGB_median = 3e-07, 2e-07, 2.5e-07
-blue_image = 2.5e-7 * numpy.ones([rows, columns, 1])
-joined_RGB_images = numpy.concatenate([joined_images,blue_image], axis=-1)
+number_of_images = number_of_frequency_divisions * number_of_time_divisions
+
+
+
+
+
+
+
+
+
+
+
+rows, columns, channels = good_dataset.spectrogram.shape
+joined_RGB_images
+
+
+
 
 # TODO farlo direttamente con xarray, perché con numpy si riempe subito quasi tutta la memoria
 splitted_images = joined_RGB_images.reshape(-1, int(frequency_cuts), 128, int(time_cuts), 3)
@@ -215,10 +243,13 @@ pyplot.figure(figsize=[10,20]) # TODO capire perché non scala
 fig = pyplot.imshow(log_image, origin="lower", interpolation="none") # aspect='auto' or 'equal'
 #pyplot.axis('off')
 extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted()) # TODO brutto hack per non fargli mettere i bordi (che dovrebbe essere invece una cosa semplicissima
-pyplot.savefig('esempio_RGB.jpg', dpi=300, bbox_inches=extent) # oppure tiff. evitare png perché introduce parecchie corruzioni. svg purtroppo qui non supporta la non interpolazione
+pyplot.savefig('/storage/users/Muciaccia/images/esempio_RGB.jpg', dpi=300, bbox_inches=extent) # oppure tiff. evitare png perché introduce parecchie corruzioni. svg purtroppo qui non supporta la non interpolazione
 pyplot.close()
 #pyplot.show()
 
+
+# TODO nota su un BUG: numpy.zeros(5).shape è uguale a (5,) invece che a 5 o [5] perché così si può sempre chiamare axis=0 ad esempio in numpy.concatenate? non c'è un modo più intelligente per farlo?
+# TODO BUG: non si può fare numpy.concatenate o numpy.stack tra un vettore (array) e una matrice. serve per forza aumentare fittizziamente le dimensioni del vettore in modo da farlo diventare una matrice Nx1
 
 exit()
 

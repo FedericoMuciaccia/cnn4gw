@@ -256,7 +256,7 @@ def process_file(file_path):
         is_science_ready = numpy.logical_and(goodness_constraints, is_in_the_usual_range)
     is_flagged = numpy.logical_not(is_science_ready)
     
-        
+    # TODO plottare gli istogrammi (magari 2D sui 2 detector) per trovare i tagli ottimali
     
     
     
@@ -286,11 +286,36 @@ def process_file(file_path):
     # TODO controllare che il valore medio sul plateau (10^-6) sia consistente con quanto scritto nella mia tesina    
     
     
-    
-    
-    
+    hist_H = []
+    hist_L = []
+    if detector = 'LIGO Hanford':
+        hist_H.append(numpy.log(autoregressive_spectrum_median))
+    if detector = 'LIGO Livingston':
+        hist_L.append(numpy.log(autoregressive_spectrum_median))
+    pyplot.hist2d(x=H, y=L, bins=100, cmap='viridis')
     #pyplot.hist(numpy.log(numpy.median(clean_selected_periodogram, axis=1)), bins=100)
     #pyplot.show()
+    # TODO fare istogrammi 2D per dimostrare la bontà delle superfici di separazione e dei tagli fatti
+    # TODO mettere legenda per l'immagine a colori, col cerchio della sintesi additiva in SVG (su un'immagine quadrata di sfondo nero) con le lettere indicative dei detector (fare delle prove con un'immagine creata ad hoc). controllare che dove mancano tutti i dati le righe verticali siano nere (dovute agli zeri) e non bianche (dovute ai NaN)
+    # TODO mettere finestra in frequenza per le immagini solo da 80 a 120 Hz e non su tutta la banda di 128 Hz (ed eventualmente ricomputare l'intervallo di 0.1 Hz)
+    # TODO portare la creazione delle immagini su xarray, in modo che il calcolo possa essere fatto senza vincoli di memoria su qualsiasi computer
+    # TODO vedere computazione out-of-memory per big-data su tensorflow
+    # TODO posticipare la normalizzazione logaritmica a dopo che si fanno le injections
+    # TODO classificare le immagini degli spettri per mostrare tutti i vari casi possibili (compreso quello degli zeri temporali, antitrasformando in Fourier)
+    # TODO fare plot di k-fold validation con numpy.percentile([5, 25, 50, 75 95], data) in modo da evere la linea di mediana e le linee con confidenza al 50% e al 90%, come fanno gli astrofisici (sensatamente, ora capisco). [5, 25, 50, 75 95] = [50-90/2, 50-50/2, 50, 50+50/2, 50+90/2]
+    # TODO poi, dopo la classificazione (trigger), fare regressione per paramenter estimation
+    # TODO Ricci vuole dei tool per studiare il rumore online (nella fase di commissioning dell'interferometro)
+    # TODO chiedere a Ornella di generare i dati più recenti
+    # TODO mettere i dati di Virgo di VSR4 (o gli ultimi di O2)
+    img = numpy.zeros([100, 100, 3])
+    img[19:79,0:59,0] = 1
+    img[39:99,19:79,1] = 1
+    img[0:59,39:99,2] = 1
+    # img[0:59,0:59,0] = 1
+    # img[19:79,19:79,1] = 1
+    # img[39:99,39:99,2] = 1
+    pyplot.imshow(img, origin="lower", interpolation="none")
+    pyplot.show()
     
     
     plot_it = False
@@ -300,7 +325,9 @@ def process_file(file_path):
             pyplot.figure()
             pyplot.grid()
             pyplot.semilogy(selected_frequencies, spectrum)
+            #pyplot.savefig('{}.svg'.format(i))
             pyplot.show()
+            pyplot.close()
     
     plot_it = False
     
@@ -338,7 +365,9 @@ def process_file(file_path):
             #zoom.set_title('Zoomed spectrum: (80 Hz - 120 Hz)') # TODO
             # TODO mettere limiti in x da 0 a 128 e farli combaciare col bordo figura
             total.legend(loc='upper right')
-            pyplot.show()
+            #pyplot.show()
+            pyplot.savefig('/storage/users/Muciaccia/images/spectra selection/{}.jpg'.format(i))
+            pyplot.close()
         
         my_plot_figure = numpy.frompyfunc(my_plot_figure, 1,1) # TODO hack per vettorializzare
         #print(fft_index[is_science_ready])
@@ -348,7 +377,8 @@ def process_file(file_path):
         # bad_selected = 66? //
         # dunque questi criteri di selezione possono portare un 1% o più di falsi positivi e falsi negativi
         # TODO ottimizzare i tagli (oppure farli fare direttamente alla macchina)
-        
+        # TODO plottare falsi positivi e falsi negativi
+        # TODO plottare anche i dati con i buchi nel tempo, per far vedere anche quel criterio di selezione
         
     
     # TODO BUG di numpy: si ripete il primo indice
@@ -390,13 +420,14 @@ def process_file(file_path):
                                    coords=coordinate_values) #, attrs=attributes) #name='immagine'
     locally_science_ready = xarray.DataArray(data=numpy.expand_dims(is_science_ready, axis=-1), 
                             dims=['GPS_time','detector'], 
-                            coords=[gps_time_values, [detector]])
+                            coords=[gps_time_values, [detector]]) # TODO [detector] VS detector
     
     dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 'locally_science_ready':locally_science_ready}, 
                         coords={'frequency':selected_frequencies,'GPS_time':gps_time_values}, 
                         attrs=attributes)
     
     return dataset
+    # TODO make an option to return the raw dataset (converted in netCDF4 format) without the flagged values putted to zero
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -415,9 +446,11 @@ def process_file(file_path):
 
 
 
-#a = process_file(L_path)
+#a = process_file(altro_path)
 
 #exit()
+
+# TODO rendere lo script una libreria, in modo da poter importare le funzioni ad esempio per fare singoli plot
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
