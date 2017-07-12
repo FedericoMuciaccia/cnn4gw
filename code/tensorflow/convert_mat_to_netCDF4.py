@@ -307,6 +307,7 @@ def process_file(file_path):
     # TODO Ricci vuole dei tool per studiare il rumore online (nella fase di commissioning dell'interferometro)
     # TODO chiedere a Ornella di generare i dati più recenti
     # TODO mettere i dati di Virgo di VSR4 (o gli ultimi di O2)
+    # TODO valutare se creare i file .netCDF4 direttamente in Matlab, in modo da risparmiare lo spazio dei file .mat
     img = numpy.zeros([100, 100, 3])
     img[19:79,0:59,0] = 1
     img[39:99,19:79,1] = 1
@@ -366,7 +367,7 @@ def process_file(file_path):
             # TODO mettere limiti in x da 0 a 128 e farli combaciare col bordo figura
             total.legend(loc='upper right')
             #pyplot.show()
-            pyplot.savefig('/storage/users/Muciaccia/images/spectra selection/{}.jpg'.format(i))
+            pyplot.savefig('/storage/users/Muciaccia/media/spectra selection/{}.jpg'.format(i))
             pyplot.close()
         
         my_plot_figure = numpy.frompyfunc(my_plot_figure, 1,1) # TODO hack per vettorializzare
