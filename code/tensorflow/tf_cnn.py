@@ -20,6 +20,8 @@ import tensorflow as tf
 import numpy
 import tflearn
 
+import xarray
+
 
 # import the dataset
 # TODO check how to efficiently read data in pure tensorflow
@@ -27,6 +29,19 @@ import tflearn
 #data = numpy.load('../../../GENERATED_clean_data.npy')
 # TODO don't load everything in memory with huge datasets
 # TODO trainX, trainY, testX, testY = mnist.load_data(one_hot=True)
+
+dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4') #chunks={'sample_index': 100})
+
+#dataset.images.where(dataset.is_noise_only & dataset.is_for_validation, drop=True)
+train_images = dataset.images.values
+train_classes = tf.one_hot(dataset.is_noise_only.values, number_of_classes, dtype=tf.float32)
+# TODO data generator (out-of-memory)?
+
+# TODO rendere ['noise', 'noise+signal'] una dimensione
+# TODO rendere ['train', 'validation'] una dimensione
+
+sample_number, rows, columns, channel = dataset.images.shape
+number_of_classes = 2
 
 # TODO vedere se su tensorflow si può evitare il canale del grigio per le immagini biancoonero
 #number_of_samples, image_width, image_height, channels = data['image'].shape
@@ -39,15 +54,15 @@ import tflearn
 #validation_images = test_set['image']
 #validation_classes = test_set['class']
 
-N = 1000
-image_shape = [1024, 128, 3]
+#N = 1000
+#image_shape = [1024, 128, 3]
 
 # TODO use tflearn dask out-of-memory dataset
 
-train_images = numpy.single(numpy.random.rand(N, *image_shape))
-train_classes = numpy.single(numpy.round(numpy.random.rand(N)))
-validation_images = numpy.single(numpy.random.rand(int(N/100), *image_shape))
-validation_classes = numpy.single(numpy.round(numpy.random.rand(int(N/100))))
+#train_images = numpy.single(numpy.random.rand(N, *image_shape))
+#train_classes = numpy.single(numpy.round(numpy.random.rand(N)))
+#validation_images = numpy.single(numpy.random.rand(int(N/100), *image_shape))
+#validation_classes = numpy.single(numpy.round(numpy.random.rand(int(N/100))))
 
 
 
@@ -78,14 +93,14 @@ validation_classes = numpy.single(numpy.round(numpy.random.rand(int(N/100))))
 # TODO learning rate that exponentially decays over time (updated at every epoch)
 #iterations = 100000 # TODO epochs
 batch_size = 128 # TODO massimo 512 per lo stochastic gradient descent (small-batch regime)
-# TODO capire perché con 128 converge molto molto più velocemente che con 512
+# TODO capire perché con 128 converge molto molto più velocemente che con 512 (forse gli outlier disturbano la media? mettere la mediana?)
 #display_step = 10
 
 number_of_epochs = 10#50
 
 # classifier parameters
-rows, columns, channels = image_shape
-number_of_classes = 2
+#rows, columns, channels = image_shape
+#number_of_classes = 2
 
 
 
@@ -286,7 +301,7 @@ logit_predictions = neural_network(images) #, weights, biases)
 # can be numerically unstable
 categorical_cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logit_predictions, labels=true_classes) # TODO capire logits, inversa sbagliata in sigmoide, softmax coi negativi
 # average across the batch
-average_categorical_cross_entropy = tf.reduce_mean(categorical_cross_entropy)
+average_categorical_cross_entropy = tf.reduce_mean(categorical_cross_entropy) # TODO median VS mean
 # loss = average_categorical_cross_entropy
 optimizer = tf.train.AdamOptimizer() # TODO exponentially decaying learnig rate
 train_step = optimizer.minimize(average_categorical_cross_entropy)

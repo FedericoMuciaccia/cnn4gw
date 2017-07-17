@@ -259,6 +259,7 @@ def process_file(file_path):
     # TODO plottare gli istogrammi (magari 2D sui 2 detector) per trovare i tagli ottimali
     
     
+    detector = s['detector']
     
     #clean_power_spectrum = power_spectrum[is_science_ready]
     #clean_autoregressive_spectrum = autoregressive_spectrum[is_science_ready]
@@ -268,16 +269,31 @@ def process_file(file_path):
     #clean_selected_autoregressive_spectrum = selected_autoregressive_spectrum[is_science_ready]
     #clean_selected_periodogram = selected_periodogram[is_science_ready]
     
+    
+    
+    
+#    if detector == 'Virgo': # TODO temporary hack for the VSR4 dataset
+#        desired_gps_start_time = astropy.time.Time(val='2017-01-01 00:00:00.000', format='iso', scale='utc').gps
+#        actual_gps_start_time = astropy.time.Time(val='2011-06-03 10:26:59.000', format='iso', scale='utc').gps
+#        gps_time_shift = desired_gps_start_time - actual_gps_start_time
+#        s['gps_time'] = s['gps_time'] + gps_time_shift # TODO c'è qui una differenza finale di 18 secondi
+    
+    # TODO il float32 è insufficiente a rappresentare il tempo GPS con la precisione dovuta, perché perde le ultime due cifre del tempo GPS (decine ed unità)
+    # TODO dato che servirà calcolare su GPU e che dunque serve il float32, propondo di ridefinire lo standard temporale GPS a partire dall' 1 gennaio 2000, invece che dal 6 gennaio 1980, chiamandolo millennium_time
+    # TODO vedere le time series di pandas e xarray come risolvono il problema
+    # TODO data/values indexes labels/coordinates axis/dimensions
+    # TODO pandas.CategoricalIndex pandas.IndexSlice pandas.IntervalIndex pandas.MultiIndex pandas.SparseArray pandas.TimedeltaIndex
+    
+    
     gps_time = astropy.time.Time(val=s['gps_time'], format='gps', scale='utc')
-    gps_time_values = gps_time.value
+    gps_time_values = gps_time.value.astype(numpy.float32)
+    
     # ISO 8601 compliant date-time format: YYYY-MM-DD HH:MM:SS.sss
     iso_time_values = gps_time.iso
     # time of the first FFT of this file
     human_readable_start_time = iso_time_values[0]
     
     #clean_iso_time_values = iso_time_values[is_science_ready]
-    
-    detector = s['detector']
 
     fft_index = s['fft_index'] - 1 # index in python start from 0 instead on 1, as in Matlab
     print('Processing', file_path)
@@ -286,37 +302,38 @@ def process_file(file_path):
     # TODO controllare che il valore medio sul plateau (10^-6) sia consistente con quanto scritto nella mia tesina    
     
     
-    hist_H = []
-    hist_L = []
-    if detector = 'LIGO Hanford':
-        hist_H.append(numpy.log(autoregressive_spectrum_median))
-    if detector = 'LIGO Livingston':
-        hist_L.append(numpy.log(autoregressive_spectrum_median))
-    pyplot.hist2d(x=H, y=L, bins=100, cmap='viridis')
-    #pyplot.hist(numpy.log(numpy.median(clean_selected_periodogram, axis=1)), bins=100)
-    #pyplot.show()
-    # TODO fare istogrammi 2D per dimostrare la bontà delle superfici di separazione e dei tagli fatti
-    # TODO mettere legenda per l'immagine a colori, col cerchio della sintesi additiva in SVG (su un'immagine quadrata di sfondo nero) con le lettere indicative dei detector (fare delle prove con un'immagine creata ad hoc). controllare che dove mancano tutti i dati le righe verticali siano nere (dovute agli zeri) e non bianche (dovute ai NaN)
-    # TODO mettere finestra in frequenza per le immagini solo da 80 a 120 Hz e non su tutta la banda di 128 Hz (ed eventualmente ricomputare l'intervallo di 0.1 Hz)
-    # TODO portare la creazione delle immagini su xarray, in modo che il calcolo possa essere fatto senza vincoli di memoria su qualsiasi computer
-    # TODO vedere computazione out-of-memory per big-data su tensorflow
-    # TODO posticipare la normalizzazione logaritmica a dopo che si fanno le injections
-    # TODO classificare le immagini degli spettri per mostrare tutti i vari casi possibili (compreso quello degli zeri temporali, antitrasformando in Fourier)
-    # TODO fare plot di k-fold validation con numpy.percentile([5, 25, 50, 75 95], data) in modo da evere la linea di mediana e le linee con confidenza al 50% e al 90%, come fanno gli astrofisici (sensatamente, ora capisco). [5, 25, 50, 75 95] = [50-90/2, 50-50/2, 50, 50+50/2, 50+90/2]
-    # TODO poi, dopo la classificazione (trigger), fare regressione per paramenter estimation
-    # TODO Ricci vuole dei tool per studiare il rumore online (nella fase di commissioning dell'interferometro)
-    # TODO chiedere a Ornella di generare i dati più recenti
-    # TODO mettere i dati di Virgo di VSR4 (o gli ultimi di O2)
-    # TODO valutare se creare i file .netCDF4 direttamente in Matlab, in modo da risparmiare lo spazio dei file .mat
-    img = numpy.zeros([100, 100, 3])
-    img[19:79,0:59,0] = 1
-    img[39:99,19:79,1] = 1
-    img[0:59,39:99,2] = 1
-    # img[0:59,0:59,0] = 1
-    # img[19:79,19:79,1] = 1
-    # img[39:99,39:99,2] = 1
-    pyplot.imshow(img, origin="lower", interpolation="none")
-    pyplot.show()
+#    hist_H = []
+#    hist_L = []
+#    hist_V = []
+#    if detector == 'LIGO Hanford':
+#        hist_H.append(numpy.log(autoregressive_spectrum_median))
+#    if detector == 'LIGO Livingston':
+#        hist_L.append(numpy.log(autoregressive_spectrum_median))
+#    pyplot.hist2d(x=H, y=L, bins=100, cmap='viridis')
+#    #pyplot.hist(numpy.log(numpy.median(clean_selected_periodogram, axis=1)), bins=100)
+#    #pyplot.show()
+#    # TODO fare istogrammi 2D per dimostrare la bontà delle superfici di separazione e dei tagli fatti
+#    # TODO mettere legenda per l'immagine a colori, col cerchio della sintesi additiva in SVG (su un'immagine quadrata di sfondo nero) con le lettere indicative dei detector (fare delle prove con un'immagine creata ad hoc). controllare che dove mancano tutti i dati le righe verticali siano nere (dovute agli zeri) e non bianche (dovute ai NaN)
+#    # TODO mettere finestra in frequenza per le immagini solo da 80 a 120 Hz e non su tutta la banda di 128 Hz (ed eventualmente ricomputare l'intervallo di 0.1 Hz)
+#    # TODO portare la creazione delle immagini su xarray, in modo che il calcolo possa essere fatto senza vincoli di memoria su qualsiasi computer
+#    # TODO vedere computazione out-of-memory per big-data su tensorflow
+#    # TODO posticipare la normalizzazione logaritmica a dopo che si fanno le injections
+#    # TODO classificare le immagini degli spettri per mostrare tutti i vari casi possibili (compreso quello degli zeri temporali, antitrasformando in Fourier)
+#    # TODO fare plot di k-fold validation con numpy.percentile([5, 25, 50, 75 95], data) in modo da evere la linea di mediana e le linee con confidenza al 50% e al 90%, come fanno gli astrofisici (sensatamente, ora capisco). [5, 25, 50, 75 95] = [50-90/2, 50-50/2, 50, 50+50/2, 50+90/2]
+#    # TODO poi, dopo la classificazione (trigger), fare regressione per paramenter estimation
+#    # TODO Ricci vuole dei tool per studiare il rumore online (nella fase di commissioning dell'interferometro)
+#    # TODO chiedere a Ornella di generare i dati più recenti
+#    # TODO mettere i dati di Virgo di VSR4 (o gli ultimi di O2)
+#    # TODO valutare se creare i file .netCDF4 direttamente in Matlab, in modo da risparmiare lo spazio dei file .mat
+#    img = numpy.zeros([100, 100, 3])
+#    img[19:79,0:59,0] = 1
+#    img[39:99,19:79,1] = 1
+#    img[0:59,39:99,2] = 1
+#    # img[0:59,0:59,0] = 1
+#    # img[19:79,19:79,1] = 1
+#    # img[39:99,39:99,2] = 1
+#    pyplot.imshow(img, origin="lower", interpolation="none")
+#    pyplot.show()
     
     
     plot_it = False
@@ -486,7 +503,8 @@ def process_folder(path):
 # TODO ricontrollare criteri di selezione con la nuova calibrazione
 # TODO anche perché i vari detector possono avere valori basali differenti, che quindi fanno scartare la mediana (penso soprattutto per Hanford)
 
-process_folder('/storage/users/Muciaccia/mat/')
+#process_folder('/storage/users/Muciaccia/mat/')
+process_folder('/storage/users/Muciaccia/mat/O2/C01/128Hz/V/')
 
 exit()
 

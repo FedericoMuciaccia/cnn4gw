@@ -35,13 +35,13 @@ number_of_samples, rows, columns, channels = RGB_images.shape
 RGB_noise_example = RGB_images[0].copy()
 
 # TODO mettere artificialmente dei buchi nei dati di Virgo, giusto per far vedere tutte le possibili combinazioni di colore
-RGB_noise_example[:,slice(25,45),2] = 0
-RGB_noise_example[:,slice(70,95),2] = 0
+#RGB_noise_example[:,slice(25,45),2] = 0
+#RGB_noise_example[:,slice(70,95),2] = 0
 
 def log_normalize(image):
     # log-normalization of the images
     # final RGB pixels must be a float from 0 to 1
-    image[image < 0] = 0 # per evitare problemi col gaussian white noise
+#    image[image < 0] = 0 # per evitare problemi col gaussian white noise
     # TODO controllare i livelli di minimo e massimo del rumore
     log_minimum = 20 # TODO col segno meno (x_min = 1e-20)
     log_maximum = 10 # TODO col segno meno (x_max = 1e-10)
@@ -70,29 +70,44 @@ def plot_RGB_image(RGB_image, file_path=None, kwargs={}):
     else:
         pyplot.show()
 
-R = log_normalize(RGB_noise_example[:,:,0].flatten()) # 0.6 +- 0.1
-G = log_normalize(RGB_noise_example[:,:,1].flatten())
-B = log_normalize(RGB_noise_example[:,:,2].flatten())
+# funzione usata solo per plottare l'istogramma dei valori non riscalati
+def safe_logarithm(image):
+    log_image = numpy.log(image)
+    # avoid log(0)=-inf
+    log_image[numpy.isneginf(log_image)] = 0
+    return log_image
+
+# log_normalize(RGB_noise_example[:,:,0].flatten())
+# take the first 100 background images to make an istogram of their values with enough statistic
+R = safe_logarithm(RGB_images[0:100,:,:,0].flatten()) # 0.6 +- 0.1
+G = safe_logarithm(RGB_images[0:100,:,:,1].flatten())
+B = safe_logarithm(RGB_images[0:100,:,:,2].flatten())
 
 pyplot.figure(figsize=[15,10])
-pyplot.title('rescaled image backgrounds')
-pyplot.xlim([0,1])
+pyplot.title('background pixel values distribution')
+#pyplot.xlim([0,1])
+pyplot.xlim([-20,-10])
+pyplot.xlabel('logarithm of not-zero background pixel values')
+pyplot.ylabel('count')
 pyplot.hist([R,G,B], 
-            bins=50, 
-            range=[0,1], 
-            label=['H real noise',
-                   'L real noise',
-                   'V gaussian white noise'], # TODO imporre ordine RGB nella legenda (ordine di plot)
+            bins=250,
+            #range=[0,1],
+            range=[-20,-10],
+            label=['H O2 C01',
+                   'L O2 C01',
+                   'V VSR4 (shifted)'], # TODO imporre ordine RGB nella legenda (ordine di plot)
             color=['red','green','blue'],
             histtype='step')
             #linewidth=2,
             #fill=True,
             #alpha=0.1)
 pyplot.legend(loc='upper right', frameon=False)
-pyplot.savefig('/storage/users/Muciaccia/media/background histograms.svg')
+pyplot.savefig('/storage/users/Muciaccia/media/background_histograms.svg')
 #pyplot.show()
 pyplot.close()
-# TODO fare lo stesso istogramma con tutti i dati, per vedere se si può un pochino aumentare il contrasto dell'immagine centrando meglio gli estremi di minimo e massimo
+# TODO vedere se si può un pochino aumentare il contrasto dell'immagine centrando meglio gli estremi di minimo e massimo
+# TODO valutare se normalizzare l'istogramma
+
 
 # TODO rifare l'istogramma in scala non riscalata, in modo da capire veramente a che livello sono i dati e di che numeri si sta parlando
 
@@ -204,6 +219,14 @@ dataset = xarray.Dataset(data_vars={'images':images, 'is_noise_only':noise_only,
 
 dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4')
 
+# TODO risolvere il problema delle strane righe orizzontali ricorrenti
+
+
+# TODO md5sum **/*
+# TODO md5sum **/*.SFDB09 >> md5.txt
+# TODO shiftare temporalmente dati Virgo (ed aggiungere i due file H finali)
+# TODO controllare a mano spettri di virgo e fare scatterplot di tutti e tre per la classificazione
+# TODO chiedere a Ornella codice e dati grezzi per generare le SFDB
 
 
 

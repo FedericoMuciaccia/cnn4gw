@@ -55,8 +55,17 @@ L_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz
 # chunksize scelto automaticamente (quando si caricano file spezzettati)
 
 # TODO fake Virgo dataset
-V_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/fake_Virgo_dataset.netCDF4', chunks={'GPS_time': 100})
-# TODO qui bisogna invece specificare il chunks_value manualmente
+#V_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/fake_Virgo_dataset.netCDF4', chunks={'GPS_time': 100}) # TODO qui bisogna invece specificare il chunks_value manualmente
+V_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/Virgo*.netCDF4')
+
+# VSR4 shifted in time and amplitude
+time_lenght = len(V_dataset.GPS_time)
+start_time_index = 650#2500000 #0
+new_times = H_dataset.GPS_time.isel(drop=True, GPS_time=slice(start_time_index,start_time_index+time_lenght)) # TODO dataset.isel({'GPS_time':slice(...), 'frequency':slice(...)})
+# TODO artificially shift the VSR4 starting time
+V_dataset.update({'GPS_time':new_times}) # V_dataset['GPS_time'] = new_times
+# TODO artificially decrease the VSR4 amplitude (better sensitivity)
+V_dataset['spectrogram'] = V_dataset.spectrogram * numpy.exp(-4)
 
 dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
 
@@ -88,9 +97,9 @@ time_ticks_required = 2*int(numpy.ceil(required_time/time_delta)) # approssimazi
 
 # magari fare il calcolo con una convoluzione 1D e mettere una soglia sul valore
 
-nan_tolerance = 0.3 # 30%
+#nan_tolerance = 0.3 # 30%
 
-acceptable_percentage = 1 - nan_tolerance
+#acceptable_percentage = 1 - nan_tolerance
 
 #time_ticks_required = 100
 
@@ -99,8 +108,8 @@ def five_day_time_stability(data):
     kernel = numpy.ones(number_of_time_ticks)
     target = data
     # TODO questa convoluzione è una sorta di running average (?)
-    stability_indicator = numpy.convolve(kernel, target, mode='same')/number_of_time_ticks
-    return stability_indicator
+    stability_indicator = numpy.convolve(kernel, target, mode='valid')/number_of_time_ticks # mode='same'
+    return stability_indicator.astype(numpy.float32) # to better handle the NaN values
 # TODO apply_along_dimension with xarray
 
 #kernel = numpy.ones(time_ticks_required)
@@ -132,9 +141,10 @@ gps_time_ticks = iso_time_ticks.gps
 time_ticks = numpy.arange(6)*month
 month_labels = ['Dec 2016', 'Jan 2017', 'Feb 2017', 'Mar 2017', 'Apr 2017', 'May 2017']
 
-H_time_stability = five_day_time_stability(H_dataset.locally_science_ready.values.flatten())
-L_time_stability = five_day_time_stability(L_dataset.locally_science_ready.values.flatten())
-V_time_stability = five_day_time_stability(V_dataset.locally_science_ready.values.flatten())
+#H_time_stability = five_day_time_stability(H_dataset.locally_science_ready.values.flatten())
+H_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='LIGO Hanford').values.flatten())
+L_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='LIGO Livingston').values.flatten())
+V_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='Virgo').values.flatten())
 
 # find coincidences
 #dataset.locally_science_ready.notnull()
@@ -144,12 +154,11 @@ globally_science_ready = dataset.locally_science_ready.all(dim='detector')
 combined_time_stability = five_day_time_stability(globally_science_ready.values)
 
 pyplot.figure(figsize=[15,10])
-pyplot.plot(H_time_stability, label='LIGO Hanford') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
-pyplot.plot(L_time_stability, label='LIGO Livingston')
-# TODO mettere pure quella di Virgo
-# pyplot.plot(V_time_stability, label='Virgo')
+pyplot.plot(H_time_stability, label='LIGO Hanford', color='#ff2d33') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
+pyplot.plot(L_time_stability, label='LIGO Livingston', color='#208033')
+pyplot.plot(V_time_stability, label='Virgo', color='#3366ff')
 pyplot.plot(combined_time_stability, label='all detectors together', color='#404040')
-pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
+#pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
 pyplot.title('{} {} data stability on 5-days timescale'.format(dataset.observing_run, dataset.calibration))
 pyplot.xlabel('time') # GPS time
 pyplot.xticks(time_ticks, month_labels)
@@ -160,11 +169,13 @@ pyplot.legend(loc='upper right', frameon=False)
 #pyplot.show()
 pyplot.savefig('/storage/users/Muciaccia/media/time_stability.svg', dpi=300)
 pyplot.close()
+# TODO sistemare i colori
 # TODO mettere legenda con due label con detector e caratteristiche del run e tick temporali coi mesi
 # TODO mettere legenda in RGB, così come tutte le 3+1 (CMY + W) possibili combinazioni di detector simultanei
 
 
 # TODO per ora cerco per semplicità il solo picco migliore
+combined_time_stability[numpy.isnan(combined_time_stability)] = 0
 good_index = numpy.argmax(combined_time_stability)
 good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
 #dataset.GPS_time.isel(good_slice, drop=True)
@@ -208,6 +219,9 @@ channels = 3
 joined_RGB_images = good_dataset.spectrogram.values
 
 # TODO provare numpy.split()
+
+# TODO controllare che si stia effettivamente prendendo una striscia verticale (in frequenza) e non in orizzontale
+# TODO perché figura sempre la stessa linea nel canale rosso
 
 splitted_images = joined_RGB_images.reshape(image_frequency_pixels, number_of_frequency_divisions, image_time_pixels, number_of_time_divisions, channels)
 # TODO rivedere nomi poco chiari
