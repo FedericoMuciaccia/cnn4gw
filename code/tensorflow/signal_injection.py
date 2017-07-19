@@ -63,6 +63,7 @@ def log_normalize(image):
 
 def plot_RGB_image(RGB_image, file_path=None, kwargs={}):
     log_image = log_normalize(RGB_image)
+    # TODO se già si è log-normalizzato l'intero dataset, si può usare direttamente train_images[0,:,:,0].plot();pyplot.show()
     pyplot.figure(figsize=[10,20]) # TODO 256x128
     fig = pyplot.imshow(log_image, origin="lower", interpolation="none", **kwargs)
     extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted())
@@ -168,6 +169,7 @@ for i in range(number_of_samples):
         image[y[i], x[i]] += signal_intensity
         # le modifiche si ripercuotono direttamente sul tensore RGB_images perché queste sono views e non copie
         image[flagged_values] = 0 # fa in modo che il segnale non ci sia dove/quando il relativo detector risulta spento
+        # TODO inserire normalizzazione
 #    if i < 100:
 #        plot_RGB_image(image, '/storage/users/Muciaccia/media/example_images/{}.jpg'.format(i)) # TODO capire perché in tutte le imagini spunta una linea orizzontale magenta a circa due terzi
 
@@ -207,7 +209,7 @@ plot_RGB_image(final_image_example[:,:,2], '/storage/users/Muciaccia/media/blue_
 coordinate_names = ['sample_index','rows','columns','channel']
 coordinate_values = {'channel':['red','green','blue']}
 
-images = xarray.DataArray(data=RGB_images, 
+images = xarray.DataArray(data=log_normalize(RGB_images), # TODO attenzione a non fare il logaritmo due volte, se per caso viene già fatto prima nel ciclo for dove si inietta il segnale
                           dims=coordinate_names, 
                           coords=coordinate_values)
 

@@ -11,7 +11,7 @@ in the Matlab prompt:
 
 * detectors: LIGO Hanford, LIGO Livingston
 * observing run: O2 (most recent data)
-* calibration: C00 (first calibration, then we will use C01)
-* SFDB band: "256" (up to 128 Hz)
+* calibration: C01 (first offline calibration)
+* SFDB band: "256" (from -128 up to +128 Hz)
 
 
