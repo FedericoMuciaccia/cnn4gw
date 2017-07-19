@@ -97,10 +97,6 @@ time_ticks_required = 2*int(numpy.ceil(required_time/time_delta)) # approssimazi
 
 # magari fare il calcolo con una convoluzione 1D e mettere una soglia sul valore
 
-#nan_tolerance = 0.3 # 30%
-
-#acceptable_percentage = 1 - nan_tolerance
-
 #time_ticks_required = 100
 
 def five_day_time_stability(data):
@@ -174,18 +170,48 @@ pyplot.close()
 # TODO mettere legenda in RGB, così come tutte le 3+1 (CMY + W) possibili combinazioni di detector simultanei
 
 
-# TODO per ora cerco per semplicità il solo picco migliore
 combined_time_stability[numpy.isnan(combined_time_stability)] = 0
+
+# TODO tassellazione provvisoria, valida in regime di bassa densità
+
+#nan_tolerance = 0.3 # 30%
+#acceptable_percentage = 1 - nan_tolerance
+
+
+
+
+
+minimum_acceptable_combined_density = 0.3
+# TODO migliorarlo (e farlo sui tempi invece che sugli indici)
+good_slices = []
 good_index = numpy.argmax(combined_time_stability)
-good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
-#dataset.GPS_time.isel(good_slice, drop=True)
-#dataset.isel({'GPS_time':good_slice})
-# .isel .isel_points # TODO
-good_times = dataset.GPS_time.values[good_slice]
-# isel
-# TODO view VS copy (in numpy)
-#good_dataset = dataset.sel(GPS_time = good_times) # TODO ???
-good_dataset = dataset.isel(GPS_time = good_slice) # TODO ???
+#while combined_time_stability[good_index] >= minimum_acceptable_combined_density:
+while len(good_slices) <= 2:
+    # TODO attenzione che ci sono spesso sovrapposizioni
+    good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
+    good_slices.append(good_slice)
+    combined_time_stability[good_slice] = 0
+    good_index = numpy.argmax(combined_time_stability)
+
+# TODO che succede con le sovrapposizioni? si ripete/duplica parte del dataset?
+good_dataset = dataset.isel(GPS_time = numpy.r_[tuple(good_slices)]) # TODO cercare un modo più elegante e comprensibile
+# TODO valutare se concatenare dei numpy.arange
+#mgrid = nd_grid(sparse=False)
+#ogrid = nd_grid(sparse=True)
+#xs, ys = numpy.ogrid[0:5,0:5]
+
+
+
+# good_index = numpy.argmax(combined_time_stability)
+# good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
+# #dataset.GPS_time.isel(good_slice, drop=True)
+# #dataset.isel({'GPS_time':good_slice})
+# # .isel .isel_points # TODO
+# #good_times = dataset.GPS_time.values[good_slice]
+# # isel
+# # TODO view VS copy (in numpy)
+# #good_dataset = dataset.sel(GPS_time = good_times) # TODO ???
+# good_dataset = dataset.isel(GPS_time = good_slice) # TODO ???
 
 # si possono combinare anche le condizioni:
 # H_dataset.isel(GPS_time = slice(0,128), frequency = slice(0,256))
@@ -207,7 +233,7 @@ image_frequency_interval = frequency_resolution * image_frequency_pixels # TODO 
 total_frequency_interval = 120 - 80 # TODO hardcoded
 number_of_frequency_divisions = int(total_frequency_interval / image_frequency_interval)
 
-number_of_time_divisions = int(1)
+number_of_time_divisions = len(good_slices) #int(1)
 
 number_of_images = int(number_of_frequency_divisions * number_of_time_divisions) # TODO attenzione agli errori di troncamento
 

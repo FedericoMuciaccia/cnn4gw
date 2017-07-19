@@ -292,7 +292,6 @@ exit()
 time_ticks_required = 128 # TODO valore semplice provvisorio
 # fft_required = 100
 
-# tassellazione provvisoria, valida in regime di bassa densità
 
 # TODO migliorarlo (e farlo sui tempi invece che sugli indici)
 good_indices = []

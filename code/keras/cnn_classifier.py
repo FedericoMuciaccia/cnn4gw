@@ -45,7 +45,7 @@ from sklearn.model_selection import train_test_split
 # TODO vedere se salvare i dati come matrici sparse per risparmiare spazio
 
 # import the dataset
-data = numpy.load('./data/clean_data.npy')
+data = numpy.load('./../../data/clean_data.npy')
 
 number_of_samples, image_width, image_height, channels = data['image'].shape
 image_shape = image_width, image_height, channels # rows, columns, channels if keras dim_ordering='tf'

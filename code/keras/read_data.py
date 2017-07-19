@@ -23,7 +23,7 @@ import skimage.io
 import numpy
 import os
 
-data_dir = "./data/raw data/simulated signal on gaussian white noise background/"
+data_dir = "./../../data/raw data/simulated signal on gaussian white noise background/"
 image_dir = './data img/skimage tif/'
 
 # MATLAB 5.0 MAT-file
@@ -208,7 +208,7 @@ validation = numpy.random.random_integers(low=0, high=1+1, size=len(images)) # p
 clean_data = numpy.array(list(zip(images,classes,amps,validation)), dtype='(98,82,1)float32, float32, float32, int8')
 clean_data.dtype.names = ('image','class','amplitude','validation')
 # save the data on disk
-numpy.save('./data/clean_data.npy', clean_data)
+numpy.save('./../../data/clean_data.npy', clean_data)
 # TODO usare un formato file più universalemte riconosciuto e leggibile di npy (csv? hdf5? h5?)
 
 exit()

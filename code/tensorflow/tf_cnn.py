@@ -18,9 +18,26 @@
 import tensorflow as tf
 
 import numpy
-import tflearn
+#import tflearn
 
 import xarray
+
+# TODO aumentare numero immagini
+# TODO fare prova con singoli canali
+# TODO controllare correttezza immagini
+# TODO mettere batch_normalization
+# TODO provare con la mediana invece che la media
+# TODO calcolare a mano valore iniziale (in base e si ha: log(2) = 0.69314718055994529)
+# TODO inizializzare bias e pesi leggermente in positivo
+# TODO servirebbero almeno 4800 immagini
+# TODO nei vecchi dati forse c'è un problema di learning rate (molti rimbalzi alti)
+# TODO provare keras coi dati vecchi e coi dati nuovi in singolo canale
+
+# TODO domande Pia:
+# rettore Gran Sasso
+# troncamento tempo GPS
+# linee orizzontali nelle immagini
+# non riesco a fare il training
 
 
 # import the dataset
@@ -32,16 +49,46 @@ import xarray
 
 dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4') #chunks={'sample_index': 100})
 
+# TODO BUG di xarray (aggiunge channel anche a is_noise_only)
+#dataset = dataset.where(dataset.channel == 'red')
+
 #dataset.images.where(dataset.is_noise_only & dataset.is_for_validation, drop=True)
-train_images = dataset.images.values
-train_classes = tf.one_hot(dataset.is_noise_only.values, number_of_classes, dtype=tf.float32)
+train_images = dataset.images.where(numpy.logical_not(dataset.is_for_validation), drop=True).values
+validation_images = dataset.images.where(dataset.is_for_validation, drop=True).values
+
+
+# TODO salvarli direttamente al contrario
+train_classes = numpy.logical_not(dataset.is_noise_only.where(numpy.logical_not(dataset.is_for_validation), drop=True).values)
+validation_classes = numpy.logical_not(dataset.is_noise_only.where(dataset.is_for_validation, drop=True).values)
 # TODO data generator (out-of-memory)?
+
+# TODO plottare degli esempi di imagini dalle due classi, in modo da capire se sono posizionate correttamente
+
+# TODO workaround per BUG che non comprendo
+import tflearn
 
 # TODO rendere ['noise', 'noise+signal'] una dimensione
 # TODO rendere ['train', 'validation'] una dimensione
 
-sample_number, rows, columns, channel = dataset.images.shape
+sample_number, rows, columns, channels = dataset.images.shape
 number_of_classes = 2
+
+
+
+# # use the old dataset
+# data = numpy.load('/storage/users/Muciaccia/OLD_clean_data.npy')
+# 
+# sample_number, rows, columns, channels = data['image'].shape
+# 
+# train_set = data[data['validation']==0]
+# test_set = data[data['validation']==1]
+# train_images = train_set['image']
+# train_classes = train_set['class']
+# validation_images = test_set['image']
+# validation_classes = test_set['class']
+
+
+
 
 # TODO vedere se su tensorflow si può evitare il canale del grigio per le immagini biancoonero
 #number_of_samples, image_width, image_height, channels = data['image'].shape
@@ -96,13 +143,13 @@ batch_size = 128 # TODO massimo 512 per lo stochastic gradient descent (small-ba
 # TODO capire perché con 128 converge molto molto più velocemente che con 512 (forse gli outlier disturbano la media? mettere la mediana?)
 #display_step = 10
 
-number_of_epochs = 10#50
+number_of_epochs = 50#10#50
 
 # classifier parameters
 #rows, columns, channels = image_shape
 #number_of_classes = 2
 
-
+# TODO far vedere le immagini sale e pepe del white noise e le immagini complete RGB per dare un'idea di quanto il compito sia più difficile
 
 # TODO not memory efficient
 #train_x = tf.constant(train_images)
@@ -120,10 +167,8 @@ validation_classes = tflearn.data_utils.to_categorical(validation_classes, numbe
 
 
 # graph input
-images = tf.placeholder(dtype=tf.float32, shape=[None, rows, columns, channels]) # TODO provare senza canali per il solo bianconero
-# reshape input image
+images = tf.placeholder(dtype=tf.float32, shape=[None, rows, columns, channels])
 true_classes = tf.placeholder(tf.float32, shape=[None, number_of_classes]) # labels
-# TODO ???
 
 #dropout_probability = 0.75 # probability that a neuron's output is kept during the learning phase
 #keep_probability = tf.placeholder(tf.float32, shape=[]) # TODO tf.constant
@@ -154,10 +199,10 @@ def neural_network(images): #, weights, biases):
     
     # convolutional part
     # TODO tf.slim.repeat
-    convolutional_layers = 5
+    convolutional_layers = 4
     #output_features = [8,8,16,16,32]
-    output_features = [8,8,8,8,8]
-    kernel_sizes = [[3,3],[3,3],[3,3],[3,3],[3,3]]
+    output_features = [9,9,9,9]
+    kernel_sizes = [[3,3],[3,3],[3,3],[3,3]]
     # TODO tf.contrib.slim.repeat
     # TODO vedere cos'è che fa parire il loss da livelli pazzeschi (tipo 10000)
     for layer in range(convolutional_layers): # TODO vedere se il for di python rallenta tutto
@@ -182,7 +227,7 @@ def neural_network(images): #, weights, biases):
                              # specifying any `dilation_rate` value != 1 is incompatible with specifying any stride value != 1
                              #activation=None, # linear activation
                              strides=[1,1],
-                             padding='same') # or 'valid'
+                             padding='valid') # or 'same'
                              # or tf.nn.conv2d
                              # or tf.contrib.layers.convolution2d
         
@@ -337,7 +382,7 @@ classification_error = 1 - accuracy # TODO check
 #while True:
 #    sess.run(my_train_op)
 
-writer = tf.summary.FileWriter(logdir='../../../tf_logs/')
+writer = tf.summary.FileWriter(logdir='/storage/users/Muciaccia/tf_logs/')
 # asynchronously updates the file contents. this allows a training program to call methods to add data to the file directly from the training loop, without slowing down training
 #writer.add_graph(sess.graph)
 #writer.add_summary() # TODO
@@ -353,6 +398,7 @@ trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
 trainer = tflearn.Trainer(train_ops=trainop, tensorboard_verbose=0)
 
 trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs)#, show_metric=True)
+# TODO Log directory: /tmp/tflearn_logs/
 # se si chiama trainer.fit() successivamente, l'addestramento riprende da dove lo si era lasciato
 # TODO implementare il curriculum learning o il decadimento esponenziale del learning_rate
 
@@ -375,6 +421,8 @@ tf.summary.scalar('accuracy', accuracy)
 # Checkpoints are binary files in a proprietary format which map variable names to tensor values. # TODO ???
 
 # with sess.as_default():
+
+exit()
 
 # TODO forse con la nuova versione ci si può fermare già qui
 
