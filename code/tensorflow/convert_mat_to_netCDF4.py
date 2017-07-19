@@ -503,8 +503,8 @@ def process_folder(path):
 # TODO ricontrollare criteri di selezione con la nuova calibrazione
 # TODO anche perché i vari detector possono avere valori basali differenti, che quindi fanno scartare la mediana (penso soprattutto per Hanford)
 
-#process_folder('/storage/users/Muciaccia/mat/')
-process_folder('/storage/users/Muciaccia/mat/O2/C01/128Hz/V/')
+process_folder('/storage/users/Muciaccia/mat/')
+#process_folder('/storage/users/Muciaccia/mat/O2/C01/128Hz/V/')
 
 exit()
 
