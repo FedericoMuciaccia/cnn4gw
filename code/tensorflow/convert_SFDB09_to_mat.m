@@ -65,7 +65,7 @@ function convert_SFDB09_to_mat(path, output_folder) % TODO mettere il default ou
         gps_nanoseconds = header.gps_nsec; % nanosecondi gps (da sommare ai secondi, dopo averli moltiplicati per 10^-9 % TODO vedere perché sono 0
         gps_time = gps_seconds + gps_nanoseconds * 1e-9; % TODO rivedere per sicurezza
         first_UTC_time = gps2utc(gps_time(1)); % gps2utc is another function included in the Snag package % TODO it would be better to have the year before the month
-        gps_time = single(gps_time); # TODO il float32 è insufficiente a rappresentare il tempo GPS con la precisione dovuta, perché perde le ultime due cifre del tempo GPS (decine ed unità)
+        gps_time = single(gps_time); % TODO il float32 è insufficiente a rappresentare il tempo GPS con la precisione dovuta, perché perde le ultime due cifre del tempo GPS (decine ed unità)
         
         if header.typ(1) == 1
             fft_interlaced = false;
