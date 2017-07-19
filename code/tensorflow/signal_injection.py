@@ -23,6 +23,8 @@
 
 import numpy
 import xarray
+import matplotlib
+matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
 from matplotlib import pyplot
 
 RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy')

@@ -19,7 +19,7 @@ import numpy
 import xarray
 import astropy.time
 import matplotlib
-#matplotlib.use('SVG')
+matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
 from matplotlib import pyplot
 
 
