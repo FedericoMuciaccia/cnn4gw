@@ -27,7 +27,7 @@ import matplotlib
 matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
 from matplotlib import pyplot
 
-RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy')
+RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy') # TODO file di 4 GB
 # TODO mettere tutto su xarray perché serve un database completo con tutti i label/classi e gli attributi
 
 number_of_samples, rows, columns, channels = RGB_images.shape
@@ -108,6 +108,7 @@ pyplot.legend(loc='upper right', frameon=False)
 pyplot.savefig('/storage/users/Muciaccia/media/background_histograms.svg')
 #pyplot.show()
 pyplot.close()
+# TODO farlo in scala semilog, che si capisce meglio ed è un formato molto più comune # TODO vedere se le due forme funzionali sono esattamente le stesse con lin_dati+log_scala VS log_dati+lin_scala
 # TODO vedere se si può un pochino aumentare il contrasto dell'immagine centrando meglio gli estremi di minimo e massimo
 # TODO valutare se normalizzare l'istogramma
 
@@ -132,6 +133,7 @@ signal_spindown = numpy.random.randint(low=-16, high=0, size=number_of_samples)
 # example: f_end = 3, f_start = 5, spindown = -2
 signal_ending_frequency = signal_starting_frequency + signal_spindown
 
+# TODO creare un generatore che crea direttamente un'immagine col solo segnale (funzione random_signal che restituisce un'immagine, magari salvata come matrice sparsa per risparmiare spazio)
 # y = m*x + b
 frequency_difference = signal_spindown
 time_difference = signal_ending_time- signal_starting_time
@@ -154,6 +156,7 @@ signal_intensity = 1e-5 # TODO per poi fare signal-to-noise ratio
 
 # half the dataset will be noise only
 is_noise_only = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
+has_signal = numpy.logical_not(is_noise_only)
 # half the dataset will be for validation
 is_for_validation = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
 # TODO BUG non c'è un modo più immediato per generare una sequenza di booleani casuale
@@ -206,20 +209,38 @@ plot_RGB_image(final_image_example[:,:,2], '/storage/users/Muciaccia/media/blue_
 # TODO vedere se si riesce a mettere il nero come colore basale per lo zero
 
 # TODO ereditare tutto dai precedenti dataset
-coordinate_names = ['sample_index','rows','columns','channel']
-coordinate_values = {'channel':['red','green','blue']}
+coordinate_names = ['sample_index','rows','columns','channels']
+coordinate_values = {'channels':['red','green','blue']}
 
-images = xarray.DataArray(data=log_normalize(RGB_images), # TODO attenzione a non fare il logaritmo due volte, se per caso viene già fatto prima nel ciclo for dove si inietta il segnale
+images = xarray.DataArray(data=log_normalize(RGB_images).astype(numpy.float32), # TODO attenzione a non fare il logaritmo due volte, se per caso viene già fatto prima nel ciclo for dove si inietta il segnale # TODO vedere perché esce in float64
                           dims=coordinate_names, 
                           coords=coordinate_values)
 
-noise_only = xarray.DataArray(data=is_noise_only,
-                          dims=['sample_index'])
+#not_noise_only = xarray.DataArray(data=not_noise_only,
+#                                  dims=['sample_index'])
+
+def one_hot_encoding(array, number_of_classes):
+    category_index = array.astype(int)
+    categorical = numpy.eye(number_of_classes, dtype=numpy.float32)[category_index]
+    return categorical
+    
+
+number_of_classes = 2
+classes = one_hot_encoding(has_signal, number_of_classes)
+classes = xarray.DataArray(data=classes,
+                 dims=['sample_index', 'categories'],
+                 coords={'categories':['noise','noise+signal']})
                               
 validation = xarray.DataArray(data=is_for_validation,
-                          dims=['sample_index'])
-                              
-dataset = xarray.Dataset(data_vars={'images':images, 'is_noise_only':noise_only, 'is_for_validation':validation})
+                              dims=['sample_index'])
+
+#number_of_sets = 2
+#set_flag = one_hot_encoding(is_for_validation, number_of_sets)
+#set_flag = xarray.DataArray(data=set_flag,
+#                 dims=['sample_index', 'sets'],
+#                 coords={'sets':['train','validation']})
+
+dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes, 'is_for_validation':validation})
 
 dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4')
 

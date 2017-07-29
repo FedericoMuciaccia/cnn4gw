@@ -18,13 +18,13 @@
 import tensorflow as tf
 
 import numpy
-#import tflearn
+#import tflearn # TODO BUG? confligge con netCDF4
+
+import time
 
 import xarray
 
-# TODO aumentare numero immagini
-# TODO fare prova con singoli canali
-# TODO controllare correttezza immagini
+# TODO aumentare numero immagini (out-of-memory)
 # TODO mettere batch_normalization
 # TODO provare con la mediana invece che la media
 # TODO calcolare a mano valore iniziale (in base e si ha: log(2) = 0.69314718055994529)
@@ -33,12 +33,7 @@ import xarray
 # TODO nei vecchi dati forse c'è un problema di learning rate (molti rimbalzi alti)
 # TODO provare keras coi dati vecchi e coi dati nuovi in singolo canale
 
-# TODO domande Pia:
-# rettore Gran Sasso
-# troncamento tempo GPS
-# linee orizzontali nelle immagini
-# non riesco a fare il training
-
+# TODO BUG in python: 7j == 0 + 7*1j (j non è definita, che sarebbe la cosa più logica)
 
 # import the dataset
 # TODO check how to efficiently read data in pure tensorflow
@@ -47,33 +42,76 @@ import xarray
 # TODO don't load everything in memory with huge datasets
 # TODO trainX, trainY, testX, testY = mnist.load_data(one_hot=True)
 
-dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4') #chunks={'sample_index': 100})
+dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4')#, chunks={'sample_index': 128}) # TODO è meglio lasciare che il chunck_size venga gestito internamente in maniera ottimale (il training risulta parecchio più veloce)
+
+# dataset.images[0:128].values.nbytes # slice(128)
+# ogni chunk da 128 immagini è grosso circa 100MB
+# (il chunksize raccomandato in Dask è tra 10 ee 100 MB)
+# dunque è anche un buon valore da usare come batch_size
 
 # TODO BUG di xarray (aggiunge channel anche a is_noise_only)
 #dataset = dataset.where(dataset.channel == 'red')
 
+# TODO BUG di xarray: su jupyter-console quando si preme Tab per vedere l'autocompletamento dei metodi di un dataset, questo viene inutilmente caricato tutto in memoria, anche se ha un chunksize ridotto (e poi molta memoria viene subito dopo liberata, ma il fatto di essere stata temporaneamente massicciamente occupata alle volte questo crea problemi a jupyter-console fino addirittura ad interrompergli il kernel di esecuzione).
+
 #dataset.images.where(dataset.is_noise_only & dataset.is_for_validation, drop=True)
-train_images = dataset.images.where(numpy.logical_not(dataset.is_for_validation), drop=True).values
-validation_images = dataset.images.where(dataset.is_for_validation, drop=True).values
+train_images = dataset.images.where(numpy.logical_not(dataset.is_for_validation), drop=True) #.values
+validation_images = dataset.images.where(dataset.is_for_validation, drop=True) #.values
+# TODO chunks di 128 o 64 immagini
 
 
-# TODO salvarli direttamente al contrario
-train_classes = numpy.logical_not(dataset.is_noise_only.where(numpy.logical_not(dataset.is_for_validation), drop=True).values)
-validation_classes = numpy.logical_not(dataset.is_noise_only.where(dataset.is_for_validation, drop=True).values)
+#dataset.sel(sets = 'validation', drop=True)
+
+# TODO vedere se la nuova versione di numpy supporta nativamente i Dask array
+
+# dataset.images
+# x = dataset.images[300:500].values
+# del x
+# Dataset.filter_by_attrs(**kwargs)
+# train_images.chunk(chunks=[batch_size, rows, columns, channels]).chunks
+
+# dict(my_key='my_value')
+# >>> {'my_key': 'my_value'}
+# dict(key_1='value_1', key_2='value_2')
+# >>> {'key_1': 'value_1', 'key_2': 'value_2'}
+
+# TODO mettere nomi migliori
+# gli array delle classi sono già in categorical encoding (one-hot encoding) in modo da essere già in formato Dask per la computazione out-of-memory (che altrimenti non si potrebbe fare usando tflearn.data_utils.to_categorical) (anche se in effetti lo spazio occupato in memoria è così poco che ce ne si poteva fregare)
+train_classes = dataset.classes.where(numpy.logical_not(dataset.is_for_validation), drop=True) # .values
+validation_classes = dataset.classes.where(dataset.is_for_validation, drop=True) # .values
 # TODO data generator (out-of-memory)?
 
-# TODO plottare degli esempi di imagini dalle due classi, in modo da capire se sono posizionate correttamente
+# TODO senza usare dataset.load() si occupano massimo 3GB di RAM invece che più di 8GB (quasi 10, considerando la anche la swap), MA l'utilizzo della RAM è estremamente oscillante (segno che c'è molta interazione col disco di memoria) ed inoltre il tempo di training risulta doppio (proprio forse a causa del collo di bottiglia del disco di memorizzazione). se invece NON si specifica a mano un chunk_size, l'utilizzo di RAM è di leggermente superiore al caso di prima (ora massimo 5GB) ma molto più regolare e meno oscillante. il training inoltre, paradossalmente ed inspiegabilmente, è anche leggermente più veloce di quando si carica tutto in RAM (circa il 10% in meno).
+# TODO vedere se le stesse differenze reggono utilizzando la GPU
+#train_images.load()
+#train_classes.load()
+#validation_images.load()
+#validation_classes.load()
+# TODO ha senso usare una rappresentazione compressa dei dati mediante la rete Inception già addestrata?
 
-# TODO workaround per BUG che non comprendo
-import tflearn
+# TODO plottare degli esempi di imagini dalle due classi, in modo da capire se sono posizionate correttamente
 
 # TODO rendere ['noise', 'noise+signal'] una dimensione
 # TODO rendere ['train', 'validation'] una dimensione
 
+# classifier parameters
 sample_number, rows, columns, channels = dataset.images.shape
 number_of_classes = 2
 
+# training parameters
+# learning_rate = 0.001 # TODO is the initial value?
+# TODO learning rate that exponentially decays over time (updated at every epoch)
+#number_of_iterations = 500#100000 # TODO epochs
+batch_size = 128#64 # TODO massimo 512 per lo stochastic gradient descent (small-batch regime) # TODO provare anche 64
+# TODO capire perché con 128 converge molto molto più velocemente che con 512 (forse gli outlier disturbano la media? mettere la mediana?)
+#display_step = 10
 
+number_of_epochs = 100#50#10#50
+
+
+#random_order = np.arange(len(X))
+#np.random.shuffle(random_order)
+#X, y = X[random_order], y[random_order]
 
 # # use the old dataset
 # data = numpy.load('/storage/users/Muciaccia/OLD_clean_data.npy')
@@ -86,9 +124,6 @@ number_of_classes = 2
 # train_classes = train_set['class']
 # validation_images = test_set['image']
 # validation_classes = test_set['class']
-
-
-
 
 # TODO vedere se su tensorflow si può evitare il canale del grigio per le immagini biancoonero
 #number_of_samples, image_width, image_height, channels = data['image'].shape
@@ -111,9 +146,6 @@ number_of_classes = 2
 #validation_images = numpy.single(numpy.random.rand(int(N/100), *image_shape))
 #validation_classes = numpy.single(numpy.round(numpy.random.rand(int(N/100))))
 
-
-
-
 # TODO slim.dataset slim.data_decoder
 
 # free some memory space # TODO tutto incluso in funzione read_data()
@@ -133,42 +165,34 @@ number_of_classes = 2
 # - aversial networks per simulare e caratterizzare il rumore (segnale = non vero rumore?)
 # - 
 
-# TODO libro deep learning, rete tensorflow, strutture dati tensorflow sequenziali dinamiche, esempi infiniti, rete distribuita
-
-# training parameters
-# learning_rate = 0.001 # TODO is the initial value?
-# TODO learning rate that exponentially decays over time (updated at every epoch)
-#iterations = 100000 # TODO epochs
-batch_size = 128 # TODO massimo 512 per lo stochastic gradient descent (small-batch regime)
-# TODO capire perché con 128 converge molto molto più velocemente che con 512 (forse gli outlier disturbano la media? mettere la mediana?)
-#display_step = 10
-
-number_of_epochs = 50#10#50
-
-# classifier parameters
-#rows, columns, channels = image_shape
-#number_of_classes = 2
+# TODO libro deep learning,strutture dati tensorflow sequenziali dinamiche, esempi infiniti, rete distribuita
 
 # TODO far vedere le immagini sale e pepe del white noise e le immagini complete RGB per dare un'idea di quanto il compito sia più difficile
 
 # TODO not memory efficient
 #train_x = tf.constant(train_images)
 #test_x = tf.constant(validation_images)
+
 # one_hot endcoding:
 # 1 -> [0,1]
 # 0 -> [1,0]
-train_y = tf.one_hot(train_classes, number_of_classes, dtype=tf.float32)
-test_y = tf.one_hot(validation_classes, number_of_classes, dtype=tf.float32)
+#train_classes = tf.one_hot(train_classes, number_of_classes, dtype=tf.float32)
+#validation_classes = tf.one_hot(validation_classes, number_of_classes, dtype=tf.float32)
+# TODO capire perché in tflearn non si possono passare a trainer.fit(...) dei tensori di TensorFlow ma si è obbligati ad usare array di numpy, che occupano molta memoria
 
 # categorical (one_hot encoding)
-train_classes = tflearn.data_utils.to_categorical(train_classes, number_of_classes).astype(numpy.float32)
-validation_classes = tflearn.data_utils.to_categorical(validation_classes, number_of_classes).astype(numpy.float32)
+#train_classes = tflearn.data_utils.to_categorical(train_classes, number_of_classes).astype(numpy.float32)
+#validation_classes = tflearn.data_utils.to_categorical(validation_classes, number_of_classes).astype(numpy.float32)
+# TODO BUG su numpy non c'è il to_categorical, come invece c'è in Matlab
 
-
+#df = train_classes.to_dataframe(name='classe') 
+#cdf = df.classe.astype('category') 
+#cdf.cat.categories = ['noise', 'noise+signal']
 
 # graph input
 images = tf.placeholder(dtype=tf.float32, shape=[None, rows, columns, channels])
-true_classes = tf.placeholder(tf.float32, shape=[None, number_of_classes]) # labels
+true_classes = tf.placeholder(dtype=tf.float32, shape=[None, number_of_classes]) # labels
+# a placeholder exists solely to serve as the target of feeds. it is not initialized and contains no data
 
 #dropout_probability = 0.75 # probability that a neuron's output is kept during the learning phase
 #keep_probability = tf.placeholder(tf.float32, shape=[]) # TODO tf.constant
@@ -257,7 +281,7 @@ def neural_network(images): #, weights, biases):
         # down-sampling (max pooling)
         x = tf.layers.max_pooling2d(x,
                                     pool_size=[2,2],
-                                    strides=[2,2], # TODO un semplice blurrig (
+                                    strides=[2,2], # TODO un semplice blurrig
                                     padding='same') # or 'valid'
                                     # or tf.nn.max_pool(...)
                                     # or tf.contrib.layers.max_pool2d(...)
@@ -310,6 +334,8 @@ def neural_network(images): #, weights, biases):
 #    initial_value = tf.constant(0.1, shape=shape)
 #    return tf.Variable(initial_value)
 
+# convolutional_kernel_shape = [kernel_size, kernel_size, input_features, number_of_filters]
+
 # store weights ad biases
 #weights = {
 #    'conv1': weight_variable([3,3,1,8]), # 3x3 kernel, 1 input, 8 output
@@ -348,9 +374,80 @@ categorical_cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logit
 # average across the batch
 average_categorical_cross_entropy = tf.reduce_mean(categorical_cross_entropy) # TODO median VS mean
 # loss = average_categorical_cross_entropy
+# learning_rate
 optimizer = tf.train.AdamOptimizer() # TODO exponentially decaying learnig rate
-train_step = optimizer.minimize(average_categorical_cross_entropy)
+
+# creates a variable to hold the global_step
+global_step = tf.Variable(0, trainable=False, name='global_step')
+
+train_step = optimizer.minimize(average_categorical_cross_entropy, global_step=global_step) # train_op
 # default Adam parameters are ok (example: learning_rate)
+
+
+
+# TODO importalo dopo: workaround per BUG su netCDF4 che non comprendo
+import tflearn # TODO capire perché l'importazione è così irragionevolmente lenta
+
+#with tf.device('/cpu:0'):
+trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
+                          optimizer=optimizer,
+                          #metric=accuracy,
+                          batch_size=batch_size)
+
+trainer = tflearn.Trainer(train_ops=trainop, tensorboard_verbose=0)
+
+trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs)#, show_metric=True)
+# TODO assicurarsi che ci sia lo shuffle ad ogni epoca
+# TODO snapshot_step=None, snapshot_epoch=True, shuffle_all=None, dprep_dict=None, daug_dict=None, excl_trainops=None, run_id=None, callbacks=[]
+# TODO Log directory: /tmp/tflearn_logs/
+# se si chiama trainer.fit() successivamente, l'addestramento riprende da dove lo si era lasciato
+# TODO implementare il curriculum learning o il decadimento esponenziale del learning_rate
+
+# TODO model metrics and validation plots con tf.summary
+# TODO training in puro tensorflow
+
+# TODO vedere tensorboard
+
+
+exit()
+
+
+
+
+#class AttrDict(dict):
+#    def __init__(self, *args, **kwargs):
+#        super(AttrDict, self).__init__(*args, **kwargs)
+#        self.__dict__ = self
+#
+#FLAGS = AttrDict({'data_directory': '/storage/users/Muciaccia/'})
+
+# TODO TensorFlow input pipelines with very large datasets (out-of-memory computation)
+with tf.Graph().as_default():
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        
+        #images_batch, labels_batch = data_set.next_batch(FLAGS.batch_size, FLAGS.fake_data)
+        images_batch, labels_batch = tf.train.batch([train_images,train_classes], batch_size, enqueue_many=True, allow_smaller_final_batch=True) # l'argomento va comunque dentro una lista, anche se è un singolo grosso tensore # TODO mettere shuffle
+        # TODO  The value of a feed cannot be a tf.Tensor object. Acceptable feed values include Python scalars, strings, lists, numpy ndarrays, or TensorHandles.
+        
+        for step in range(number_of_iterations):
+            begin_time = time.time()
+            sess.run(train_step, feed_dict={images: images_batch, true_classes: labels_batch})
+            end_time = time.time()
+            duration = end_time - begin_time
+            loss_value = sess.run(loss, feed_dict={images: images_batch, true_classes: labels_batch})
+            
+            if step % 10 == 0:
+                # print an oveerview on screen
+                print('iteration:', step)
+                print('loss:', loss_value)
+                print('global_step:', tf.train.global_step(sess, global_step_tensor))
+                print('duration:', duration)
+                
+                # write the summary
+
+
+
 
 # compute class prediction with softmax
 # TODO duplicato
@@ -377,6 +474,8 @@ accuracy = tf.reduce_mean(correctness_of_predictions)
 
 classification_error = 1 - accuracy # TODO check
 
+#classification_error.eval(feed_dict={image:validation_images})
+
 # TODO plottare errore per i singoli dataset
 
 #while True:
@@ -389,25 +488,97 @@ writer = tf.summary.FileWriter(logdir='/storage/users/Muciaccia/tf_logs/')
 #writer.add_session_log()
 #writer.add_event()
 
-#with tf.device('/cpu:0'):
-trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
-                          optimizer=optimizer,
-                          metric=accuracy,
-                          batch_size=batch_size)
+######################################
 
-trainer = tflearn.Trainer(train_ops=trainop, tensorboard_verbose=0)
 
-trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs)#, show_metric=True)
-# TODO Log directory: /tmp/tflearn_logs/
-# se si chiama trainer.fit() successivamente, l'addestramento riprende da dove lo si era lasciato
-# TODO implementare il curriculum learning o il decadimento esponenziale del learning_rate
+def save_tfrecords_file(file_path, dataset):
+    images = dataset.images
+    classes = dataset.classes
+    number_of_samples, rows, columns, channels = images.shape
+    writer = tf.python_io.TFRecordWriter(filename)
+    for index in range(number_of_samples):
+        label = int(classes[index])
+        image_raw = images[index].tostring()
+        example = tf.train.Example(features=tf.train.Features(feature={
+            #'height': tf.train.Feature(int64_list=tf.train.Int64List(value=[rows])),
+            #'width': tf.train.Feature(int64_list=tf.train.Int64List(value=[columns])),
+            #'channels': tf.train.Feature(int64_list=tf.train.Int64List(value=[channels])),
+            'class': tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
+            'image_shape': tf.train.Feature(int64_list=tf.train.Int64List(value=dataset.images.shape)), 
+            'image_flatten_raw': tf.train.Feature(bytes_list=tf.train.BytesList(value=[image_raw]))}))
+        writer.write(example.SerializeToString())
+    writer.close()
+# TODO la dimensione è assolutamente simile a quella usata da numpy.save
 
-# TODO model metrics and validation plots con tf.summary
-# TODO training in puro tensorflow
+# TODO provare a fare il feeding dei batch ditettamente da xarray
 
-# TODO vedere tensorboard
+correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-tf.summary.scalar('cross_entropy', average_categorical_cross_entropy)
+sess.run(tf.global_variables_initializer())
+
+
+tflearn.datasets
+ds = tensorflow.contrib.learn.datasets.base.Dataset(data=x, target=y)
+ds.data
+ds.target
+
+ds = tf.contrib.learn.datasets.base.Datasets(train=A, validation=B, test=C)
+
+# TFRecords
+
+images
+classes
+
+# TODO legare la lettura del chunks del netCDF4 al feeding del batch size
+
+name = 'train' # 'validation'
+
+import os
+
+filename = os.path.join(FLAGS.data_directory, name + '.tfrecords')
+
+
+# tf.train.Feature
+# tf.train.Features
+# tf.train.FeatureList
+# tf.train.FeatureLists
+
+# BytesList, FloatList, Int64List
+
+
+
+
+# Avi code:
+
+
+# PAGAMENTO LAUREA ENTRO 60 GIORNI DALL'APPELLO
+# VERBALIZZARE TIROCINIO E CORSO_MONOGRAFICO
+
+
+# list of filenames
+files = tf.train.match_filenames_once('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/*.netCDF4')
+# filename queue
+filename_queue = tf.train.string_input_producer(files, num_epochs=None, shuffle=True, seed=None, shared_name=None, name=None) # FIFOQueue
+# a reader
+reader = tf.TextLineReader()
+key, value = reader.read(filename_queue)
+
+for i in range(1000):
+  batch = ds.train.next_batch(128)
+
+  if i%100 == 0:
+    train_accuracy = accuracy.eval(feed_dict={x:batch[0], y_: batch[1]})
+    print("step %d, training accuracy %g"%(i, train_accuracy))
+  train_step.run(feed_dict={images: batch[0], true_classes: batch[1]})
+  
+print("test accuracy %g"%accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels}))
+
+
+
+######################################
+
+tf.summary.scalar('cross_entropy', average_categorical_cross_entropy) # loss.op.name
 tf.summary.scalar('accuracy', accuracy)
 # tf.summary.image('input', x_image, 3)
 # merged_summary = tf.summary.merge_all()
@@ -417,6 +588,7 @@ tf.summary.scalar('accuracy', accuracy)
 # tf.train.shuffle_batch
 # tf.train.Supervisor
 # A training helper that checkpoints models and computes summaries. The Supervisor is a small wrapper around a `Coordinator`, a `Saver`, and a `SessionManager` that takes care of common needs of TensorFlow training programs.
+# To train with replicas you deploy the same program in a `Cluster`.
 
 # Checkpoints are binary files in a proprietary format which map variable names to tensor values. # TODO ???
 
@@ -431,13 +603,16 @@ with tf.Session() as sess: # TODO with
     # initializing the variables
     init = tf.global_variables_initializer()
     sess.run(init)
+    
     step = 1 # first iteration
     # Keep training until reach max iterations
     # TODO tf.while_loop
 
     writer.add_graph(sess.graph)
     exit()
-
+    
+    # iterations = number of batches used in the training
+    # epochs = number of times that the whole dataset is used during the training
     while step * batch_size < iterations: # number of training examples shown to the neural network
         # the steps argument sets the number of mini-batches to train on
         # TODO vs 50 epochs with shuffled data
