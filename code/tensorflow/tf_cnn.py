@@ -260,18 +260,18 @@ def neural_network(images): #, weights, biases):
 #        # TODO vedere articolo. training mode (statistics of the current batch) or in inference mode (moving statistics)
 #        # reference: http://arxiv.org/abs/1502.03167
 #        # TODO valutare se normalizzare con mediana e quartili invece che con media e deviazione standard
-        x = tf.layers.batch_normalization(x,
+#        x = tf.layers.batch_normalization(x,
 #                                          #axis=-1,
 #                                          #momentum=?,
-                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
-                                          scale=False, # if True, multiply by `gamma`
+#                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
+#                                          scale=False, # if True, multiply by `gamma`
 #                                          #beta_initializer=tf.zeros_initializer(),
 #                                          #gamma_initializer=tf.ones_initializer(),
 #                                          #moving_mean_initializer=tf.zeros_initializer(),
 #                                          #moving_variance_initializer=tf.ones_initializer(),
 #                                          #beta_regularizer=None,
 #                                          #gamma_regularizer=None, 
-                                          trainable=False) # TODO default: trainable=True
+#                                          trainable=False) # TODO default: trainable=True
 #                                          # TODO learnable: different variance normalizations in the Kadhanof blocking?
 #                                          # or tf.contrib.layers.batch_norm(...)
 #                                          # or tf.nn.batch_normalization(...)
@@ -393,8 +393,11 @@ import tflearn # TODO capire perché l'importazione è così irragionevolmente l
 #with tf.device('/cpu:0'):
 trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
                           optimizer=optimizer,
-                          #metric=accuracy,
-                          batch_size=batch_size)
+                          #metric='accuracy',
+                          batch_size=batch_size,
+                          shuffle=True)
+                          #validation_monitors
+                          #step_tensor # TODO exponential decay
 
 trainer = tflearn.Trainer(train_ops=trainop, tensorboard_verbose=0)
 
