@@ -412,6 +412,7 @@ trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_
 
 # TODO salvare la distribuzione del loss alle varie iterazioni/step e vedere se la mediana migliorerebbe le cose rispetto alla media
 
+# TODO comincia a imboccare la strada giusta dopo la ventesima epoca
 
 exit()
 
