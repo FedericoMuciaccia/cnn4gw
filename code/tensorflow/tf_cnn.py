@@ -105,8 +105,9 @@ number_of_classes = 2
 batch_size = 128#64 # TODO massimo 512 per lo stochastic gradient descent (small-batch regime) # TODO provare anche 64
 # TODO capire perché con 128 converge molto molto più velocemente che con 512 (forse gli outlier disturbano la media? mettere la mediana?)
 #display_step = 10
+# TODO fare batch_size aggiustato automaticamente internamente dal software, per sfruttare le coincidenze tra i blocchi ed aumentare le frestazioni nel caso di dati letti out-of-memory (magari imporre proprio batch_size = chuncks[i])
 
-number_of_epochs = 100#50#10#50
+number_of_epochs = 50#100
 
 
 #random_order = np.arange(len(X))
@@ -258,18 +259,19 @@ def neural_network(images): #, weights, biases):
 #        # batch normalization to reduce internal covariate shift
 #        # TODO vedere articolo. training mode (statistics of the current batch) or in inference mode (moving statistics)
 #        # reference: http://arxiv.org/abs/1502.03167
-#        x = tf.layers.batch_normalization(x,
+#        # TODO valutare se normalizzare con mediana e quartili invece che con media e deviazione standard
+        x = tf.layers.batch_normalization(x,
 #                                          #axis=-1,
 #                                          #momentum=?,
-#                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
-#                                          scale=False, # if True, multiply by `gamma`
+                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
+                                          scale=False, # if True, multiply by `gamma`
 #                                          #beta_initializer=tf.zeros_initializer(),
 #                                          #gamma_initializer=tf.ones_initializer(),
 #                                          #moving_mean_initializer=tf.zeros_initializer(),
 #                                          #moving_variance_initializer=tf.ones_initializer(),
 #                                          #beta_regularizer=None,
 #                                          #gamma_regularizer=None, 
-#                                          trainable=False) # TODO default: trainable=True
+                                          trainable=False) # TODO default: trainable=True
 #                                          # TODO learnable: different variance normalizations in the Kadhanof blocking?
 #                                          # or tf.contrib.layers.batch_norm(...)
 #                                          # or tf.nn.batch_normalization(...)
@@ -407,6 +409,8 @@ trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_
 # TODO training in puro tensorflow
 
 # TODO vedere tensorboard
+
+# TODO salvare la distribuzione del loss alle varie iterazioni/step e vedere se la mediana migliorerebbe le cose rispetto alla media
 
 
 exit()
