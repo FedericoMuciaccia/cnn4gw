@@ -260,18 +260,18 @@ def neural_network(images): #, weights, biases):
 #        # TODO vedere articolo. training mode (statistics of the current batch) or in inference mode (moving statistics)
 #        # reference: http://arxiv.org/abs/1502.03167
 #        # TODO valutare se normalizzare con mediana e quartili invece che con media e deviazione standard
-        x = tf.layers.batch_normalization(x,
+#        x = tf.layers.batch_normalization(x,
 #                                          #axis=-1,
 #                                          #momentum=?,
-                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
-                                          scale=False, # if True, multiply by `gamma`
+#                                          center=False, # if True, add offset of `beta` to normalized tensor # TODO add a bias
+#                                          scale=False, # if True, multiply by `gamma`
 #                                          #beta_initializer=tf.zeros_initializer(),
 #                                          #gamma_initializer=tf.ones_initializer(),
 #                                          #moving_mean_initializer=tf.zeros_initializer(),
 #                                          #moving_variance_initializer=tf.ones_initializer(),
 #                                          #beta_regularizer=None,
 #                                          #gamma_regularizer=None, 
-                                          trainable=False) # TODO default: trainable=True
+#                                          trainable=False) # TODO default: trainable=True
 #                                          # TODO learnable: different variance normalizations in the Kadhanof blocking?
 #                                          # or tf.contrib.layers.batch_norm(...)
 #                                          # or tf.nn.batch_normalization(...)
@@ -390,18 +390,24 @@ train_step = optimizer.minimize(average_categorical_cross_entropy, global_step=g
 # TODO importalo dopo: workaround per BUG su netCDF4 che non comprendo
 import tflearn # TODO capire perché l'importazione è così irragionevolmente lenta
 
+accuracy = tflearn.metrics.Accuracy(name='accuracy') # computes the model accuracy. the target predictions are assumed to be logits
+#accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logit_predictions, 1), tf.argmax(true_classes, 1)), tf.float32), name="acc")
+
 #with tf.device('/cpu:0'):
 trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
                           optimizer=optimizer,
-                          #metric=accuracy,
-                          batch_size=batch_size)
+                          metric=accuracy,
+                          batch_size=batch_size,
+                          shuffle=True)
+                          #validation_monitors
+                          #step_tensor # TODO exponential decay
 
-trainer = tflearn.Trainer(train_ops=trainop, tensorboard_verbose=0)
+trainer = tflearn.Trainer(train_ops=trainop, tensorboard_dir='/storage/users/Muciaccia/tflearn_logs/', tensorboard_verbose=0)
 
-trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs)#, show_metric=True)
+trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs, show_metric=True)
+# TODO run_id='signal amplitude = ...'
 # TODO assicurarsi che ci sia lo shuffle ad ogni epoca
 # TODO snapshot_step=None, snapshot_epoch=True, shuffle_all=None, dprep_dict=None, daug_dict=None, excl_trainops=None, run_id=None, callbacks=[]
-# TODO Log directory: /tmp/tflearn_logs/
 # se si chiama trainer.fit() successivamente, l'addestramento riprende da dove lo si era lasciato
 # TODO implementare il curriculum learning o il decadimento esponenziale del learning_rate
 
