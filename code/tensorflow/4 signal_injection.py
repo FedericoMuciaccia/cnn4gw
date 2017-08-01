@@ -123,6 +123,7 @@ pyplot.close()
 # creo lo spazio dei parametri
 # TODO per il momento tutto misurato in unità di pixels
 # TODO in seguito fare tutto coi veri valori dei tempi e delle frequenze e non i valori degli indici/pixel
+# TODO correggere e generalizzare oltre i 128
 signal_starting_frequency = numpy.random.randint(low=0+64, high=256-64, size=number_of_samples)
 signal_starting_time = numpy.random.randint(low=0+16, high=64-16, size=number_of_samples)
 # TODO lenght from 1 day to 3 days
@@ -228,8 +229,8 @@ def one_hot_encoding(array, number_of_classes):
 number_of_classes = 2
 classes = one_hot_encoding(has_signal, number_of_classes)
 classes = xarray.DataArray(data=classes,
-                 dims=['sample_index', 'categories'],
-                 coords={'categories':['noise','noise+signal']})
+                 dims=['sample_index', 'label'],
+                 coords={'label':['noise','noise+signal']})
                               
 validation = xarray.DataArray(data=is_for_validation,
                               dims=['sample_index'])

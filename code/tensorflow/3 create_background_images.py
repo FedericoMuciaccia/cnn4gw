@@ -89,18 +89,26 @@ dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
 
 #selected_L_dataset = L_dataset.where(L_dataset.locally_science_ready == True)
 
-time_delta = 8192 # TODO hardcoded
-day = 60*60*24
-required_time = 5*day
-time_ticks_required = 2*int(numpy.ceil(required_time/time_delta)) # approssimazione per eccesso all'intero più vicino (ricordando che il fattore 2 serve a tenere in conto del fatto che le FFT sono interallacciate)
-# TODO servono quindi 106 tempi. ma a questo punto direi che si potrebbe arrotondare a 100 per semplicità
+second = 1
+minute = 60 * second
+hour = 60 * minute
+day = 24 * hour
+week = 7 * day
+
+default_time_scale = week # TODO
+
+def time_pixels(time_interval):
+    # time_interval is in seconds
+    time_delta = dataset.FFT_lenght
+    return 2*int(numpy.ceil(time_interval/time_delta))
+    # approssimazione per eccesso all'intero più vicino
+    # il fattore 2 serve a tenere in conto del fatto che le FFT sono interallacciate
 
 # magari fare il calcolo con una convoluzione 1D e mettere una soglia sul valore
 
-#time_ticks_required = 100
-
-def five_day_time_stability(data):
-    number_of_time_ticks = 128 # TODO
+def time_stability(data, time_interval = default_time_scale):
+    #time_interval = 128
+    number_of_time_ticks = time_pixels(time_interval)
     kernel = numpy.ones(number_of_time_ticks)
     target = data
     # TODO questa convoluzione è una sorta di running average (?)
@@ -138,16 +146,16 @@ time_ticks = numpy.arange(6)*month
 month_labels = ['Dec 2016', 'Jan 2017', 'Feb 2017', 'Mar 2017', 'Apr 2017', 'May 2017']
 
 #H_time_stability = five_day_time_stability(H_dataset.locally_science_ready.values.flatten())
-H_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='LIGO Hanford').values.flatten())
-L_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='LIGO Livingston').values.flatten())
-V_time_stability = five_day_time_stability(dataset.locally_science_ready.sel(detector='Virgo').values.flatten())
+H_time_stability = time_stability(dataset.locally_science_ready.sel(detector='LIGO Hanford').values.flatten())
+L_time_stability = time_stability(dataset.locally_science_ready.sel(detector='LIGO Livingston').values.flatten())
+V_time_stability = time_stability(dataset.locally_science_ready.sel(detector='Virgo').values.flatten())
 
 # find coincidences
 #dataset.locally_science_ready.notnull()
 globally_science_ready = dataset.locally_science_ready.all(dim='detector')
 # TODO BUG: numpy.nan conta come True
 
-combined_time_stability = five_day_time_stability(globally_science_ready.values)
+combined_time_stability = time_stability(globally_science_ready.values)
 
 pyplot.figure(figsize=[15,10])
 pyplot.plot(H_time_stability, label='LIGO Hanford', color='#ff2d33') # plot per vedere come evolve nel tempo la bontà dei dati (loro densità temporale locale in funzione del tempo)
@@ -155,10 +163,10 @@ pyplot.plot(L_time_stability, label='LIGO Livingston', color='#208033')
 pyplot.plot(V_time_stability, label='Virgo', color='#3366ff')
 pyplot.plot(combined_time_stability, label='all detectors together', color='#404040')
 #pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
-pyplot.title('{} {} data stability on 5-days timescale'.format(dataset.observing_run, dataset.calibration))
+pyplot.title('{} {} data stability on 1-week timescale'.format(dataset.observing_run, dataset.calibration))
 pyplot.xlabel('time') # GPS time
 pyplot.xticks(time_ticks, month_labels)
-pyplot.ylabel('density of FFTs on 5-days timescale') # TODO vedere nome migliore
+pyplot.ylabel('density of FFTs on 1-week timescale') # TODO vedere nome migliore
 #pyplot.xlim([0,5*month]) # TODO
 pyplot.ylim([0,1])
 pyplot.legend(loc='upper right', frameon=False)
@@ -181,14 +189,15 @@ combined_time_stability[numpy.isnan(combined_time_stability)] = 0
 
 
 
-minimum_acceptable_combined_density = 0.3
+#minimum_acceptable_combined_density = 0.3
 # TODO migliorarlo (e farlo sui tempi invece che sugli indici)
 good_slices = []
 good_index = numpy.argmax(combined_time_stability)
 #while combined_time_stability[good_index] >= minimum_acceptable_combined_density:
-while len(good_slices) <= 2:
+while len(good_slices) < 2: # TODO farlo out-of-memory per non avere limitazioni sul campione
     # TODO attenzione che ci sono spesso sovrapposizioni
-    good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
+    half_interval = int(time_pixels(default_time_scale)/2) # TODO assicurarsi del giusto arrotondamento
+    good_slice = slice(good_index-half_interval, good_index+half_interval)
     good_slices.append(good_slice)
     combined_time_stability[good_slice] = 0
     good_index = numpy.argmax(combined_time_stability)
@@ -228,7 +237,7 @@ good_dataset = dataset.isel(GPS_time = numpy.r_[tuple(good_slices)]) # TODO cerc
 #image_frequency_interval = total_frequency_interval / number_of_frequency_divisions
 
 frequency_resolution = 1/dataset.FFT_lenght # TODO vedere se c'è il fattore 2 per le FFT interallacciate (non capisco come faccia a fare lo stesso risultato derivante del codice commentato qui sopra) (in effetti ogni pixel rappresenta una FFT. il fatto che ci siano le FFT interallacciate vuol dire che ci saranno il doppio dei pixel dantro un dato intervallo di frequenze, dunque ci dovrebbe comunque essere un fattore 2)
-image_frequency_pixels = 256 # TODO 1024
+image_frequency_pixels = 256 # TODO 1024 # TODO hardcoded
 image_frequency_interval = frequency_resolution * image_frequency_pixels # TODO ??? fattore 2? # TODO facendo il plot direttamente con xarray il valore risulta giusto (fino alla quarta cifra)
 total_frequency_interval = 120 - 80 # TODO hardcoded
 number_of_frequency_divisions = int(total_frequency_interval / image_frequency_interval)
@@ -237,9 +246,12 @@ number_of_time_divisions = len(good_slices) #int(1)
 
 number_of_images = int(number_of_frequency_divisions * number_of_time_divisions) # TODO attenzione agli errori di troncamento
 
-image_time_pixels = 128 # hardcoded
+image_time_pixels = time_pixels(default_time_scale)
 
 channels = 3
+
+
+# TODO PARTE LENTISSIMA E COSTRETTA DALL'AMMONTARE DI MEMORIA
 
 # TODO farlo direttamente con xarray, perché con numpy si riempe subito quasi tutta la memoria
 joined_RGB_images = good_dataset.spectrogram.values

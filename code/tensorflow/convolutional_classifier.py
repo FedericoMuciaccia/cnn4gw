@@ -96,7 +96,7 @@ validation_classes = dataset.classes.where(dataset.is_for_validation, drop=True)
 
 # classifier parameters
 sample_number, rows, columns, channels = dataset.images.shape
-number_of_classes = 2
+number_of_classes = dataset.categories.size # 2
 
 # training parameters
 # learning_rate = 0.001 # TODO is the initial value?
@@ -396,7 +396,7 @@ accuracy = tflearn.metrics.Accuracy(name='accuracy') # computes the model accura
 #with tf.device('/cpu:0'):
 trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
                           optimizer=optimizer,
-                          metric=accuracy,
+                          #metric=accuracy,
                           batch_size=batch_size,
                           shuffle=True)
                           #validation_monitors
