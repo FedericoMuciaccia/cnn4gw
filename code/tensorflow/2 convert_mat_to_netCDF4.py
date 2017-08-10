@@ -43,6 +43,7 @@ import glob
 
 file_path = altro_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/01-Apr-2017 01:07:58.000000.mat'
 H_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/01-Apr-2017 01:07:58.000000.mat'
+file_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/V/01-Sep-2011 00:26:25.000000.mat'
 
 # TODO scipy does not support v7.3 mat-files
 # matlab --v7.3 files are hdf5 datasets
@@ -285,6 +286,8 @@ def process_file(file_path):
     # TODO pandas.CategoricalIndex pandas.IndexSlice pandas.IntervalIndex pandas.MultiIndex pandas.SparseArray pandas.TimedeltaIndex
     
     
+    # TODO mettere GPS_time in float64
+    
     gps_time = astropy.time.Time(val=s['gps_time'], format='gps', scale='utc')
     gps_time_values = gps_time.value.astype(numpy.float32)
     
@@ -419,6 +422,20 @@ def process_file(file_path):
     periodogram[is_flagged] = 0
     selected_periodogram[is_flagged] = 0
     
+    # expand each value of the selected_autoregressive_spectrum 128 times
+    # these values will be later used for the whitening of the data
+    expander = numpy.ones(128, dtype=numpy.float32) # TODO hardcoded
+    expanded_selected_autoregressive_spectrum = numpy.einsum('ij,k', selected_autoregressive_spectrum, expander).reshape(len(selected_autoregressive_spectrum), -1)
+    
+    selected_whitened_power_spectrum = selected_power_spectrum/expanded_selected_autoregressive_spectrum
+    # exclude nan (=0/0) and inf (=x/0)
+    excluded = numpy.logical_not(numpy.isfinite(selected_whitened_power_spectrum))
+    selected_whitened_power_spectrum[excluded] = 0
+    # NOTA: i valori sbiancati sono sempre per definizione maggiori di 0, quindi si può tranquillamente fare il logaritmo. dunque l'istogramma NON è una gaussiana centrata in zero, come mi aspettavo. il valore centrale del rapporto, per definizione, è 1 per cui il valore centrale del logaritmo è 0. l'istogramma dei logaritmi è una curva a campana asimmetrica, orientativamente centrata in 0. fare il logaritmo del rapporto è come fare la sottrazione dei due logaritmi (proprio come sottrarre le due curve nel grafico semilogy), MA bisogna utilizzare il primo metodo perché il segnale si dovrà iniettare PRIMA di fare il logaritmo
+    # rumore bianco = piatto in frequenza
+    # 'sigma' asimmetrica =? 68% 50% quartile larghezza_a_mezza_altezza
+    # TODO i dati in logaritmo sono in unità di sigma? lo sbiancamento non dovrebbe risultare gaussiano? come si assegnano i valori di confidenza a 2.5 sigma se la distribuzione è asimmetrica? bisogna anche dividere per 8192/2? dato che l'operazione di whitening è una divisione in Fourier, si può mappare in una convoluzione nello spazio reale? come è fatto lo spettro autoregressivo? è frutto di una convolutione anche lui? "The resulting time series is no longer in units of strain; now in units of 'sigmas' away from the mean"
+    
     # create a unitary structure to return
     
     selected_frequencies = numpy.single(selected_frequencies) # float32
@@ -436,11 +453,14 @@ def process_file(file_path):
     spectrogram = xarray.DataArray(data=numpy.expand_dims(numpy.transpose(selected_power_spectrum), axis=-1), 
                                    dims=coordinate_names, 
                                    coords=coordinate_values) #, attrs=attributes) #name='immagine'
+    whitened_spectrogram = xarray.DataArray(data=numpy.expand_dims(numpy.transpose(selected_whitened_power_spectrum), axis=-1), 
+                                            dims=coordinate_names, 
+                                            coords=coordinate_values)
     locally_science_ready = xarray.DataArray(data=numpy.expand_dims(is_science_ready, axis=-1), 
                             dims=['GPS_time','detector'], 
                             coords=[gps_time_values, [detector]]) # TODO [detector] VS detector
     
-    dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 'locally_science_ready':locally_science_ready}, 
+    dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 'whitened_spectrogram':whitened_spectrogram, 'locally_science_ready':locally_science_ready}, 
                         coords={'frequency':selected_frequencies,'GPS_time':gps_time_values}, 
                         attrs=attributes)
     

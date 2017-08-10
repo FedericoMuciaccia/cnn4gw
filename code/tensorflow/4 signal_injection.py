@@ -64,9 +64,9 @@ def log_normalize(image):
 def plot_RGB_image(RGB_image, file_path=None, kwargs={}):
     log_image = log_normalize(RGB_image)
     # TODO se già si è log-normalizzato l'intero dataset, si può usare direttamente train_images[0,:,:,0].plot();pyplot.show()
-    pyplot.figure(figsize=[10,20]) # TODO 256x128
+    pyplot.figure(figsize=[10,10*256/148]) # TODO 256x128
     fig = pyplot.imshow(log_image, origin="lower", interpolation="none", **kwargs)
-    extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted())
+    extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted()) # TODO attenzione che il formato dell'immagine non sembra quello corretto SENZA imporre prima il figsize. possibile errore di fondo?
     if file_path is not None:
         pyplot.savefig(file_path, dpi=300, bbox_inches=extent)
         pyplot.close()
@@ -104,6 +104,7 @@ pyplot.hist([R,G,B],
             #linewidth=2,
             #fill=True,
             #alpha=0.1)
+pyplot.vlines(x=numpy.log(1e-6), ymin=0, ymax=40000, color='black', label='level of the injected signal (1e-6)')
 pyplot.legend(loc='upper right', frameon=False)
 pyplot.savefig('/storage/users/Muciaccia/media/background_histograms.svg')
 #pyplot.show()
@@ -117,44 +118,57 @@ pyplot.close()
 
 # TODO controllare dappertutto i logaritmi in base e o in base 10
 
+# TODO libro neuroscienze: Kandel
+
 # inietto direttamente un pattern nel dominio delle frequenze
 # una sinusoide troncata con un certo spindown appare nello spettrogramma semplicemente come un segmento inclinato verso il basso
 
-# creo lo spazio dei parametri
-# TODO per il momento tutto misurato in unità di pixels
-# TODO in seguito fare tutto coi veri valori dei tempi e delle frequenze e non i valori degli indici/pixel
-# TODO correggere e generalizzare oltre i 128
-signal_starting_frequency = numpy.random.randint(low=0+64, high=256-64, size=number_of_samples)
-signal_starting_time = numpy.random.randint(low=0+16, high=64-16, size=number_of_samples)
-# TODO lenght from 1 day to 3 days
-signal_ending_time = numpy.random.randint(low=64+16, high=128-16, size=number_of_samples)
-signal_spindown = numpy.random.randint(low=-16, high=0, size=number_of_samples)
-# the minus sign is because we want signals with decreasing frequency (spindown and not spinup)
-# spindown = frequency_difference = f_end - f_start
-# example: f_end = 3, f_start = 5, spindown = -2
-signal_ending_frequency = signal_starting_frequency + signal_spindown
+def add_signal(image, signal_intensity = 1e-5): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
+    rows, columns, channels = image.shape
+    
+    max_spindown = 16
+    frequency_border = 2*max_spindown
+    time_border = 16
+    
+    def half(value):
+        return int(value/2)
+    
+    # creo lo spazio dei parametri
+    # TODO per il momento tutto misurato in unità di pixels
+    # TODO in seguito fare tutto coi veri valori dei tempi e delle frequenze e non i valori degli indici/pixel
+    signal_starting_frequency = numpy.random.randint(low=0+frequency_border, high=rows-frequency_border)
+    signal_starting_time = numpy.random.randint(low=0+time_border, high=half(columns)-time_border)
+    signal_ending_time = numpy.random.randint(low=half(columns)+time_border, high=columns-time_border)
+    signal_spindown = numpy.random.randint(low=-max_spindown, high=0)
+    # the minus sign is because we want signals with decreasing frequency (spindown and not spinup)
+    # spindown = frequency_difference = f_end - f_start
+    # example: f_end = 3, f_start = 5, spindown = -2
+    signal_ending_frequency = signal_starting_frequency + signal_spindown
+    
+    # y = m*x + b
+    frequency_difference = signal_spindown
+    time_difference = signal_ending_time - signal_starting_time
+    m = frequency_difference / time_difference
+    b = - m*signal_starting_time + signal_starting_frequency
+    
+    t = numpy.arange(signal_starting_time, signal_ending_time)
+    f = numpy.round(m*t+b).astype(int)
+        
+    flagged_values = numpy.equal(image, 0)
+    image[f, t] += signal_intensity
+    
+    # le modifiche si ripercuotono direttamente sul tensore RGB_images perché queste sono views e non copie
+    # TODO per poi fare signal-to-noise ratio
+    # TODO in futuro l'ampiezza del segnale potrà anche decadere nel tempo
+    # TODO inoltre questo segnale appare ugualmente intenso in tutti i detector, che invece hanno sensibilità diverse
+    image[flagged_values] = 0 # fa in modo che il segnale non ci sia dove/quando il relativo detector risulta spento
+    # TODO inserire normalizzazione
 
 # TODO creare un generatore che crea direttamente un'immagine col solo segnale (funzione random_signal che restituisce un'immagine, magari salvata come matrice sparsa per risparmiare spazio)
-# y = m*x + b
-frequency_difference = signal_spindown
-time_difference = signal_ending_time- signal_starting_time
-m = frequency_difference / time_difference
-b = m*signal_starting_time + signal_starting_frequency
-x = []
-y = []
-for i in range(number_of_samples):
-    t = numpy.arange(signal_starting_time[i], signal_ending_time[i])
-    f = numpy.round(m[i]*t + b[i]).astype(int)
-    x.append(t)
-    y.append(f)
-    # TODO BUG: su numpy manca una buona implementazione delle matrici sparse
-    # TODO BUG: vedere sintassi in numpy.arange?
-signal_intensity = 1e-5 # TODO per poi fare signal-to-noise ratio
-# TODO in futuro l'ampiezza del segnale potrà anche decadere nel tempo
-# TODO inoltre questo segnale appare ugualmente intenso in tutti i detector, che invece hanno sensibilità diverse
+# TODO BUG: su numpy manca una buona implementazione delle matrici sparse
+# TODO BUG: vedere sintassi in numpy.arange?
 
 # TODO salvarne metà dati di puro noise
-
 # half the dataset will be noise only
 is_noise_only = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
 has_signal = numpy.logical_not(is_noise_only)
@@ -162,20 +176,29 @@ has_signal = numpy.logical_not(is_noise_only)
 is_for_validation = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
 # TODO BUG non c'è un modo più immediato per generare una sequenza di booleani casuale
 
-# TODO levare il for e parallelizzare
-# TODO BUG: per un linguaggio moderno dovrebbe essere facile parallelizzare e vettorializzare anche se lunghezze e tipi di dati su cui operare sono disomogenei. esempio: square([scalare, vettore, matrice]) dovrebbe funzionare tranquillamente senza problemi
 for i in range(number_of_samples):
-    image = RGB_images[i]
-    if is_noise_only[i] == False:
-        #print(i, len(x[i]), len(y[i]))
+    if has_signal[i] == True:
+        add_signal(RGB_images[i])
 
-        flagged_values = image == 0
-        image[y[i], x[i]] += signal_intensity
-        # le modifiche si ripercuotono direttamente sul tensore RGB_images perché queste sono views e non copie
-        image[flagged_values] = 0 # fa in modo che il segnale non ci sia dove/quando il relativo detector risulta spento
-        # TODO inserire normalizzazione
+## TODO parallelizzare/vettorializzare questo ciclo for
+#def inject_signal(images):
+#    for i in range(len(images)):
+#        add_signal(images[i])
+## TODO BUG: NON FUNZIONA (forse perché le funzioni di python generano copie e non views)
+#inject_signal(RGB_images[has_signal])
+
+#i = 0
+#for image in RGB_images[0:10]:
+#    plot_RGB_image(image, '/storage/users/Muciaccia/media/prova/{}.jpg'.format(i))
+#    i += 1
+
+# TODO BUG: per un linguaggio moderno dovrebbe essere facile parallelizzare e vettorializzare anche se lunghezze e tipi di dati su cui operare sono disomogenei. esempio: square([scalare, vettore, matrice]) dovrebbe funzionare tranquillamente senza problemi
+
 #    if i < 100:
-#        plot_RGB_image(image, '/storage/users/Muciaccia/media/example_images/{}.jpg'.format(i)) # TODO capire perché in tutte le imagini spunta una linea orizzontale magenta a circa due terzi
+#        plot_RGB_image(image, '/storage/users/Muciaccia/media/example_images/{}.jpg'.format(i)) 
+
+
+# TODO capire perché in tutte le imagini spunta una linea orizzontale magenta a circa due terzi
 
 # valori in grigio medio (usando una distribuzione log-normale)
 #post = numpy.random.normal(loc=0.5, scale=0.1, size=1000)
@@ -193,7 +216,10 @@ plot_RGB_image(RGB_noise_example, '/storage/users/Muciaccia/media/RGB_noise_exam
 # plot an example of simulated signal
 i = 0
 empty_image = numpy.zeros_like(RGB_images[i])
-empty_image[y[i], x[i]] = signal_intensity
+#empty_image[y[i], x[i]] = signal_intensity
+empty_image += 1
+add_signal(empty_image)
+empty_image -= 1
 signal_example = empty_image
 plot_RGB_image(signal_example, '/storage/users/Muciaccia/media/simulated_signal_example.jpg')
 
@@ -243,7 +269,7 @@ validation = xarray.DataArray(data=is_for_validation,
 
 dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes, 'is_for_validation':validation})
 
-dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4')
+dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4', format='NETCDF4')
 
 # TODO risolvere il problema delle strane righe orizzontali ricorrenti
 

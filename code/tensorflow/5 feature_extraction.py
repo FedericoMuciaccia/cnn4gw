@@ -64,20 +64,19 @@ feature_dataset.to_netcdf('/storage/users/Muciaccia/features.netCDF4', format='N
 
 exit()
 
-pre-trained model
+#pre-trained model
 
-prediction
-feature extraction
-fine tuning
+#prediction
+#feature extraction
+#fine tuning
 
+#voglio fare le immagini 256x256 (quadrate)
 
-voglio fare le immagini 256x256 (quadrate)
+#oppure, dato che si deve comunque mediare sulla struttura spaziale delle features, fare una settimana
 
-oppure, dato che si deve comunque mediare sulla struttura spaziale delle features, fare una settimana
+#input_tensor
 
-input_tensor
-
-x = keras.applications.inception_v3.preprocess_input(x)
+#x = keras.applications.inception_v3.preprocess_input(x)
 
 
 

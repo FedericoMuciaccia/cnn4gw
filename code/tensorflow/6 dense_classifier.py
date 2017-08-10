@@ -71,11 +71,8 @@ confusion_matrix = numpy.zeros([2,2]).astype(int)
 for i in range(len(a)):
     confusion_matrix[a[i],b[i]] += 1
 
+# TODO fare grafico dell'addestramento ripetuto 100 volte (con campione di validazione preso a caso) e mettere mediana e percentili al 50% e 90%, come in astrofisica. questo procedimento serve a vedere la variabilità statistica del training. NON é una k-fold validation
+
 # TODO ottenere questi dati da tflearn o da tensorboard per generalizzare la pipeline (in modo da poter poi metterci in mezzo il classificatore convolutivo)
 
-# TODO dense_classifier.py
-# TODO convolutional_classifier.py
-
-
-#Huawei P8 lite smart
 

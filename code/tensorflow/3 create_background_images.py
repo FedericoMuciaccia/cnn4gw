@@ -16,6 +16,7 @@
 
 
 import numpy
+import dask
 import xarray
 import astropy.time
 import matplotlib
@@ -70,6 +71,29 @@ V_dataset['spectrogram'] = V_dataset.spectrogram * numpy.exp(-4)
 dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
 
 # TODO in xarray.open_mfdataset attributes from the first dataset file are used for the combined dataset
+
+
+
+fig, [raw, whitened] = pyplot.subplots(nrows=2, ncols=1, figsize=[10,10])
+raw.semilogy(dataset.frequency, dataset.spectrogram[:,0,0])
+raw.set_ylabel('strain') # TODO CHECK # TODO mettere unità di misura
+raw.set_xlabel('frequency [Hz]')
+whitened.semilogy(dataset.frequency, dataset.whitened_spectrogram[:,0,0])
+whitened.set_ylabel('whitened strain') # TODO CHECK
+whitened.set_xlabel('frequency [Hz]')
+raw.set_title('comparison between raw and whitened spectra \n', size=16) # TODO 3 hack
+pyplot.savefig('/storage/users/Muciaccia/media/whitening.jpg')
+pyplot.close()
+
+# TODO mettere i due istogrammi verticalmente a lato dei due spettri (come fannpo gli astrofisici per il grafico dei residui)
+# TODO non serve a molto, dato che poi verrà fatto un plot simile coi tre colori/canali/detector. serve solo a far vedere che la distribuzione non viene molto modificata
+
+numpy.log(dataset.spectrogram[0:256,0:128,0]).plot.hist(bins=100, range=[-20, 0])
+pyplot.show()
+
+numpy.log(dataset.whitened_spectrogram[0:256,0:128,0]).plot.hist(bins=100, range=[-10, 10])
+pyplot.show()
+
 
 
 #a.globally_science_ready[a.globally_science_ready.values == True]
@@ -240,11 +264,11 @@ frequency_resolution = 1/dataset.FFT_lenght # TODO vedere se c'è il fattore 2 p
 image_frequency_pixels = 256 # TODO 1024 # TODO hardcoded
 image_frequency_interval = frequency_resolution * image_frequency_pixels # TODO ??? fattore 2? # TODO facendo il plot direttamente con xarray il valore risulta giusto (fino alla quarta cifra)
 total_frequency_interval = 120 - 80 # TODO hardcoded
-number_of_frequency_divisions = int(total_frequency_interval / image_frequency_interval)
+frequency_divisions = int(total_frequency_interval / image_frequency_interval) # TODO = int(len(dataset.frequency)/image_frequency_pixels)
 
-number_of_time_divisions = len(good_slices) #int(1)
+time_divisions = len(good_slices) #int(1)
 
-number_of_images = int(number_of_frequency_divisions * number_of_time_divisions) # TODO attenzione agli errori di troncamento
+number_of_images = int(frequency_divisions * time_divisions) # TODO attenzione agli errori di troncamento
 
 image_time_pixels = time_pixels(default_time_scale)
 
@@ -253,19 +277,61 @@ channels = 3
 
 # TODO PARTE LENTISSIMA E COSTRETTA DALL'AMMONTARE DI MEMORIA
 
-# TODO farlo direttamente con xarray, perché con numpy si riempe subito quasi tutta la memoria
-joined_RGB_images = good_dataset.spectrogram.values
 
-# TODO provare numpy.split()
+# TODO la lista è ancora un array numpy in memoria. provare dataset.groupby()
+#first_image = numpy.split(dataset.whitened_spectrogram,number_of_frequency_divisions,axis=dataset.whitened_spectrogram.get_axis_num('frequency'))[0]
+#pyplot.figure(figsize=[5,10])
+#numpy.log(first_image).plot(vmin=-10, vmax=5)
+#pyplot.show()
 
-# TODO controllare che si stia effettivamente prendendo una striscia verticale (in frequenza) e non in orizzontale
-# TODO perché figura sempre la stessa linea nel canale rosso
+#joined_RGB_images = good_dataset.spectrogram.values
+big_RGB_image = dask.array.from_array(good_dataset.whitened_spectrogram, chunks=128) # TODO mettere chunks automatici o ereditati da xarray
+# con numpy si riempe subito quasi tutta la memoria
+# TODO farlo direttamente con xarray invece che con dask, in modo da mantenere i valori di frequency e GPS_time (comodo soprattutto nei plot)
 
-splitted_images = joined_RGB_images.reshape(image_frequency_pixels, number_of_frequency_divisions, image_time_pixels, number_of_time_divisions, channels)
 # TODO rivedere nomi poco chiari
-splitted_images = numpy.transpose(splitted_images, axes=[1,3,0,2,4])
-
+# frequency = rows*height
+# time = columns*width
+splitted_images = big_RGB_image.reshape(frequency_divisions, image_frequency_pixels, time_divisions, image_time_pixels, channels) # rows, height, columns, width, channels
+splitted_images = splitted_images.transpose(0,2,1,3,4) # rows, columns, height, width, channels
+# number_of_images = rows*columns
 RGB_images = splitted_images.reshape(number_of_images, image_frequency_pixels, image_time_pixels, channels)
+
+# create many little images by tassellation of the big image
+# 1) frequency, time, channels
+# 2) rows*height, columns*width, channels
+# 3) rows, height, columns, width, channels
+# 4) rows, columns, height, width, channels
+# 5) rows*columns, height, width, channels
+# 6) number_of_images, height, width, channels
+
+#samples, height, width, channels = imgs.shape
+## samples is now equal to rows * cols
+## let's rearrange things to create a grid of images
+#mosaic = imgs.reshape(rows, cols, height, width, channels)
+## permutation of some indices
+#mosaic = numpy.transpose(mosaic, axes=(0,2,1,3,4))
+#mosaic = mosaic.reshape(rows*height, cols*width, channels)
+
+# # esempio che funziona:
+# frequency = 20
+# time = 6
+# channels = 1
+# m = numpy.arange(120).reshape(frequency, time, channels)
+# print(m.squeeze())
+# # frequency = rows*height
+# # time = columns*width
+# rows = 4
+# height = 5
+# columns = 2
+# width = 3
+# m1 = m.reshape(rows, height, columns, width, channels)
+# m2 = m1.transpose(axes=[0,2,1,3,4]) # rows, columns, height, width, channels
+# print(m2.squeeze())
+# # number_of_images = rows*columns
+# m3 = m2.reshape(rows*columns, height, width, channels)
+# print(m3.squeeze())
+
 
 #image = RGB_images[0]
 
@@ -274,5 +340,9 @@ RGB_images = splitted_images.reshape(number_of_images, image_frequency_pixels, i
 # TODO valutare se spostare una parte di codice su TensorFlow, usando le parallelizzazioni su GPU e i data generators
 
 # TODO farlo con xarray e salvare in .netCDF4 per poter fare computazione out-of-memory
-numpy.save('/storage/users/Muciaccia/background_RGB_images.npy', RGB_images)
+#numpy.save('/storage/users/Muciaccia/background_RGB_images.npy', RGB_images)
+
+background_RGB_images = xarray.DataArray(data=RGB_images, dims=['image_index', 'height', 'width', 'channels'], name='images')
+
+background_RGB_images.to_netcdf('/storage/users/Muciaccia/background_RGB_images.netCDF4', format='NETCDF4')
 
