@@ -65,6 +65,9 @@ pyplot.show()
 
 #dataset.whitened_spectrogram[0:256,0:128].plot(norm=colors.LogNorm(vmin=Z1.min(), vmax=Z1.max()))
 
+#matplotlib.style.use('ggplot')
+#dataset.whitened_spectrogram.plot(logy=True, x_compat=True)
+#matplotlib gcf().autofmt_xdate()
 
 # dataset.notnull
 # dataset.isnull
@@ -96,14 +99,6 @@ numpy.squeeze(peakmap[0:256,0:128]).plot(cmap='gray_r'); pyplot.show()
 
 #log_values[numpy.isinf(log_values)] = 0
 #ValueError: orthogonal array indexing only supports 1d arrays
-
-
-# xarray.Dataset({'time': pandas.date_range(start='2017-01-01', freq='8192s', tz='UTC', periods=100)})
-# http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
-# netcdftime.DateFromJulianDay
-
-gps_start = dataset.GPS_time[0]
-iso_start = astropy.time.Time(val=gps_start, format='gps', scale='utc').iso
 
 
 # TODO vedere libreria python fatta da quelli di LIGO

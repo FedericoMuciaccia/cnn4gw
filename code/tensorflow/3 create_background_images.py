@@ -17,6 +17,7 @@
 
 import numpy
 import dask
+import pandas
 import xarray
 import astropy.time
 import matplotlib
@@ -60,37 +61,65 @@ L_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz
 V_dataset = xarray.open_mfdataset('/storage/users/Muciaccia/netCDF4/O2/C01/128Hz/Virgo*.netCDF4')
 
 # VSR4 shifted in time and amplitude
-time_lenght = len(V_dataset.GPS_time)
-start_time_index = 650#2500000 #0
-new_times = H_dataset.GPS_time.isel(drop=True, GPS_time=slice(start_time_index,start_time_index+time_lenght)) # TODO dataset.isel({'GPS_time':slice(...), 'frequency':slice(...)})
+time_lenght = len(V_dataset.time)
+start_time_index = 650 #0 # TODO metterlo come data che è più elegante
+new_times = H_dataset.time.isel(drop=True, time=slice(start_time_index,start_time_index+time_lenght)) # TODO dataset.isel({'time':slice(...), 'frequency':slice(...)})
 # TODO artificially shift the VSR4 starting time
-V_dataset.update({'GPS_time':new_times}) # V_dataset['GPS_time'] = new_times
+V_dataset.update({'time':new_times}) # V_dataset['time'] = new_times
 # TODO artificially decrease the VSR4 amplitude (better sensitivity)
 V_dataset['spectrogram'] = V_dataset.spectrogram * numpy.exp(-4)
 
 dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
 
+
+a = xarray.DataArray(data=numpy.random.rand(5,5).astype('float32'), dims=['x','y'])
+b = xarray.DataArray(data=numpy.round(numpy.random.rand(5)).astype(bool), dims=['x'])
+c = xarray.Dataset(data_vars=dict(my_float32_matrix=a, my_bool_array=b))
+
+A = xarray.DataArray(data=numpy.random.rand(5,5).astype('float32'), dims=['x','y'])
+B = xarray.DataArray(data=numpy.round(numpy.random.rand(5)).astype(bool), dims=['x'])
+C = xarray.Dataset(data_vars=dict(my_float32_matrix=A, my_bool_array=B))
+
+d = xarray.concat([c,C], dim='x')
+
+
+
 # TODO in xarray.open_mfdataset attributes from the first dataset file are used for the combined dataset
 
 
+# TODO il whitening andrebbe fatto DOPO l'iniezione del segnale, per essere sicuri che sopravviva alla pipeline di analisi. dunque mi servirebbe capire come si calcola lo spettro autoregressivo a partire dai dati dello spettro non sbiancato
+# TODO ad essere precisi, probabilmente il segnale va iniettato a monte di tutto, nei dati grezzi nel dominio del tempo, per far vedere che effettivamente sopravvive a tutti gli step dell'analisi dati
+# future pipeline:
+# 1) read time-domain data
+# 2) inject signals
+# 3) create spectra
+# 4) select good spectra
+# 5) whitening
+# 6) create images
+# 7) classification
 
+# TODO mettere i tick temporali ogni 24 ore invece che ogni 12 (quando comincia ogni nuovo giorno, ovvero alla mezzanotte)
 fig, [raw, whitened] = pyplot.subplots(nrows=2, ncols=1, figsize=[10,10])
-raw.semilogy(dataset.frequency, dataset.spectrogram[:,0,0])
+raw.semilogy(dataset.frequency, dataset.spectrogram[:,100,0])
 raw.set_ylabel('strain') # TODO CHECK # TODO mettere unità di misura
 raw.set_xlabel('frequency [Hz]')
-whitened.semilogy(dataset.frequency, dataset.whitened_spectrogram[:,0,0])
+whitened.semilogy(dataset.frequency, dataset.whitened_spectrogram[:,100,0])
 whitened.set_ylabel('whitened strain') # TODO CHECK
 whitened.set_xlabel('frequency [Hz]')
 raw.set_title('comparison between raw and whitened spectra \n', size=16) # TODO 3 hack
 pyplot.savefig('/storage/users/Muciaccia/media/whitening.jpg')
 pyplot.close()
+# TODO aggiungere per completezza anche la visualizzazione dello spettro autoregressivo
+# TODO per coerenza col contenuto del grafico, spostare queste istruzioni nello script precedente
 
 # TODO mettere i due istogrammi verticalmente a lato dei due spettri (come fannpo gli astrofisici per il grafico dei residui)
 # TODO non serve a molto, dato che poi verrà fatto un plot simile coi tre colori/canali/detector. serve solo a far vedere che la distribuzione non viene molto modificata
 
+# TODO
 numpy.log(dataset.spectrogram[0:256,0:128,0]).plot.hist(bins=100, range=[-20, 0])
 pyplot.show()
 
+# TODO
 numpy.log(dataset.whitened_spectrogram[0:256,0:128,0]).plot.hist(bins=100, range=[-10, 10])
 pyplot.show()
 
@@ -218,22 +247,32 @@ combined_time_stability[numpy.isnan(combined_time_stability)] = 0
 good_slices = []
 good_index = numpy.argmax(combined_time_stability)
 #while combined_time_stability[good_index] >= minimum_acceptable_combined_density:
-while len(good_slices) < 2: # TODO farlo out-of-memory per non avere limitazioni sul campione
-    # TODO attenzione che ci sono spesso sovrapposizioni
+while len(good_slices) < 2: # TODO incrementare le dimensioni del dataset
+    # TODO attenzione che ci sono spesso sovrapposizioni # TODO assicurare una corretta tassellazione
     half_interval = int(time_pixels(default_time_scale)/2) # TODO assicurarsi del giusto arrotondamento
     good_slice = slice(good_index-half_interval, good_index+half_interval)
     good_slices.append(good_slice)
     combined_time_stability[good_slice] = 0
     good_index = numpy.argmax(combined_time_stability)
 
+
+# TODO BUG: non funziona l'immagine RGB
+fig = pyplot.figure(figsize=[7,15])
+numpy.log(dataset.whitened_spectrogram[0:256,good_slices[1],0]).plot(vmin=-10, vmax=5, cmap='gray', extend='neither', cbar_kwargs=dict(shrink=0.5))
+fig.autofmt_xdate() # rotate the labels of the time ticks
+pyplot.savefig('/storage/users/Muciaccia/media/grayscale_example.jpg', dpi=300)
+# TODO ridurre le dimensioni della barra che indica la scala (sia in cicciosità che in altezza)
+
+
 # TODO che succede con le sovrapposizioni? si ripete/duplica parte del dataset?
-good_dataset = dataset.isel(GPS_time = numpy.r_[tuple(good_slices)]) # TODO cercare un modo più elegante e comprensibile
+#good_dataset = dataset.isel(time = good_slices[0]) # TODO poi parallelizzare a mano su tutte le slice (così si riesce forse a fare tutto il calcolo in ram)
+#good_dataset = dataset.isel(time = numpy.r_[tuple(good_slices)]) # TODO cercare un modo più elegante e comprensibile
 # TODO valutare se concatenare dei numpy.arange
 #mgrid = nd_grid(sparse=False)
 #ogrid = nd_grid(sparse=True)
 #xs, ys = numpy.ogrid[0:5,0:5]
 
-
+# TODO selezionare le slice temporali col nuovo sistema di indexing delle pandas timeseries
 
 # good_index = numpy.argmax(combined_time_stability)
 # good_slice = slice(good_index-64, good_index+64) # TODO hardcoded
@@ -266,26 +305,144 @@ image_frequency_interval = frequency_resolution * image_frequency_pixels # TODO 
 total_frequency_interval = 120 - 80 # TODO hardcoded
 frequency_divisions = int(total_frequency_interval / image_frequency_interval) # TODO = int(len(dataset.frequency)/image_frequency_pixels)
 
-time_divisions = len(good_slices) #int(1)
+#time_divisions = len(good_slices)
+time_divisions = 1
 
 number_of_images = int(frequency_divisions * time_divisions) # TODO attenzione agli errori di troncamento
 
 image_time_pixels = time_pixels(default_time_scale)
 
-channels = 3
+channels = 3 # TODO hardcoded
 
 
 # TODO PARTE LENTISSIMA E COSTRETTA DALL'AMMONTARE DI MEMORIA
 
+# TODO vedere dataset.groupby_bins e poi convertirlo in xarray con una nuova dimensione
+# per l'espansione generarre un MultiIndex e sostituirlo a quello corrente (magari passando per un reindexing). per il riordinamento fare un riarrangiamento delle dimensioni. per la contrazione fare un unstack
+
+
+
+def process_time_slice(time_slice):
+    good_dataset = dataset.isel(time = time_slice)
+    starting_time = good_dataset.time[0].values # TODO levare la T
+
+    a = numpy.split(good_dataset.whitened_spectrogram,frequency_divisions,axis=dataset.whitened_spectrogram.get_axis_num('frequency'))
+    b = numpy.stack(a, axis=0)
+    c = xarray.DataArray(data=b, dims=['image_index', 'height', 'width', 'channels'], name='images', attrs=dict(start_time=str(starting_time))) # TODO inserire anche starting_frequecy negli attributi
+    c.to_netcdf('/storage/users/Muciaccia/background_RGB_images/{}.netCDF4'.format(starting_time), format='NETCDF4')
+
+
+for i in range(len(good_slices)): # ciclo for totalmente parallelizzabile
+    process_time_slice(good_slices[i])
+
+
+
+exit()
+
+
+# cave di Cusa
+# Selinunte
+# Mazzara
+# torre Salsa
+# Zingaro
+# Pantalica
+# foce del fiume ...
+# miniere di sale
+
+
+
+#good_dataset = H_dataset.isel(time = slice(1000,1128))
+if True:
+    good_dataset.rename(dict(detector='channels'), inplace=True)
+# TODO vedere se si possono avere due diversi tipi di coordinate (detector and color) che puntano alla stessa dimensione (channels)
+#data['color'] = ('channels', ['red','green','blue'])
+#data.set_index(channels=['detector','color'])
+
+    data = good_dataset.whitened_spectrogram
+# ogni slice temporale completa occupa circa 1.2 GB
+
+#data = data.chunk(64)
+
+#frequency_divisions = 1280
+#image_frequency_pixels = 256
+#time_divisions = 1
+#image_time_pixels = 128
+
+# TODO farlo con set_index()
+    rows = numpy.arange(frequency_divisions) # TODO VS iterable range()
+    height = numpy.arange(image_frequency_pixels)
+    frequency_multilevel_index = pandas.MultiIndex.from_product([rows, height], names=['rows', 'height'])
+
+    columns = numpy.arange(time_divisions)
+    width = numpy.arange(image_time_pixels)
+    time_multilevel_index = pandas.MultiIndex.from_product([columns, width], names=['columns', 'width'])
+
+    data['frequency'] = frequency_multilevel_index
+    data['time'] = time_multilevel_index
+
+    data = data.unstack('frequency')
+    data = data.unstack('time')
+
+#data = data.chunk(64)
+
+    data = data.stack(image_index=['rows','columns'])
+
+#number_of_samples = good_dataset.get_index('image_index').size
+#good_dataset['image_index'] = pandas.RangeIndex(start=0, stop=number_of_samples, step=1, name='image_index')
+
+# TODO rimuovere valori di locally_science_ready e spectrogram (tenere solo le immagini) # TODO farlo prima del conto di reshape, in modo da allegerirlo (usare DataArray invece che DataSet)
+# TODO mettere frequenza e tempo di inizio per ogni immagine, in modo da poter ricostruire tutto a posteriori
+
+    data.reset_index(['height', 'width', 'image_index'], drop=True, inplace=True)
+
+#data = data.chunk(64)
+
+# TODO poccolo hack per fare una trasposizione tra i due indici
+    data = data.stack(dummy=['channels', 'image_index'])
+#data.reorder_levels(dict(Nando=['image_index','channels']))
+    data = data.unstack('dummy')
+# TODO cambiare dummy name
+
+    data.reset_index('image_index', drop=True, inplace=True)
+
+# TODO if non ci entra: dividi in 4 l'immagine grossa
+# TODO fare una slice temporale alla volta (parrallelismo fatto a mano)
+
+# NOTA: con una sola slice temporale si può fare entrare tutto in ram. poi si itera su tutte le slice temporali. dato che la finestra in frequenza è fissa, questo permette di poter continuare ad usare questo sistema anche quando la dimensione dei dati acquisiti dovesse crescere molto nel tempo
+# TODO vedere se farlo semplicemente con numpy.slice()
+
+#data = data.chunk(64) # TODO tutti questi rechunk andrebbero ottimizzati
+
+    data.to_netcdf('/storage/users/Muciaccia/background_RGB_images/{}.netCDF4'.format(starting_time), format='NETCDF4') # TODO BUG: non crea le cartelle automaticamente
+
+
+exit()
+
+
+xarray.open_mfdataset('/storage/users/Muciaccia/background_RGB_images/*.netCDF4', concat_dim='image_index') # TODO far in modo che le dimensioni vengano visualizzate nell'ordine corretto
+
+# vedere coordinate multidimensionali
+#good_dataset.indexes['image_index'].droplevel()
+#time_composite_index.slice_locs
+#time_composite_index.slice_indexer
+#time_composite_index.set_levels
+#time_composite_index.reindex
+#time_composite_index.droplevel()
+#good_dataset.coords.to_index()
+#dataset.frequency.unstack()
+#good_dataset.reorder_levels
+#good_dataset.swap_dims
+#good_dataset.transpose # NOTE: although this operation returns a view of each array's data, it is not lazy. the data will be fully loaded into memory
+
 
 # TODO la lista è ancora un array numpy in memoria. provare dataset.groupby()
-#first_image = numpy.split(dataset.whitened_spectrogram,number_of_frequency_divisions,axis=dataset.whitened_spectrogram.get_axis_num('frequency'))[0]
+#first_image = numpy.split(good_dataset.whitened_spectrogram,frequency_divisions,axis=dataset.whitened_spectrogram.get_axis_num('frequency'))[0]
 #pyplot.figure(figsize=[5,10])
 #numpy.log(first_image).plot(vmin=-10, vmax=5)
 #pyplot.show()
 
 #joined_RGB_images = good_dataset.spectrogram.values
-big_RGB_image = dask.array.from_array(good_dataset.whitened_spectrogram, chunks=128) # TODO mettere chunks automatici o ereditati da xarray
+big_RGB_image = dask.array.from_array(good_dataset.whitened_spectrogram, chunks=64) # TODO mettere chunks automatici o ereditati da xarray
 # con numpy si riempe subito quasi tutta la memoria
 # TODO farlo direttamente con xarray invece che con dask, in modo da mantenere i valori di frequency e GPS_time (comodo soprattutto nei plot)
 
@@ -298,20 +455,15 @@ splitted_images = splitted_images.transpose(0,2,1,3,4) # rows, columns, height, 
 RGB_images = splitted_images.reshape(number_of_images, image_frequency_pixels, image_time_pixels, channels)
 
 # create many little images by tassellation of the big image
+# here are the operations on the various dimensions (shape):
 # 1) frequency, time, channels
-# 2) rows*height, columns*width, channels
-# 3) rows, height, columns, width, channels
-# 4) rows, columns, height, width, channels
-# 5) rows*columns, height, width, channels
-# 6) number_of_images, height, width, channels
+# 2) rows*height, columns*width, channels       # expansion
+# 3) rows, height, columns, width, channels     # division
+# 4) rows, columns, height, width, channels     # reordering
+# 5) rows*columns, height, width, channels      # contraction
+# 6) number_of_images, height, width, channels  # aggregation
 
 #samples, height, width, channels = imgs.shape
-## samples is now equal to rows * cols
-## let's rearrange things to create a grid of images
-#mosaic = imgs.reshape(rows, cols, height, width, channels)
-## permutation of some indices
-#mosaic = numpy.transpose(mosaic, axes=(0,2,1,3,4))
-#mosaic = mosaic.reshape(rows*height, cols*width, channels)
 
 # # esempio che funziona:
 # frequency = 20
@@ -342,6 +494,9 @@ RGB_images = splitted_images.reshape(number_of_images, image_frequency_pixels, i
 # TODO farlo con xarray e salvare in .netCDF4 per poter fare computazione out-of-memory
 #numpy.save('/storage/users/Muciaccia/background_RGB_images.npy', RGB_images)
 
+# TODO non riesco a non riempire la ram ed usare la swap e dunque, rallentare tutto!!
+
+RGB_images = RGB_images.rechunk(64) # TODO hack
 background_RGB_images = xarray.DataArray(data=RGB_images, dims=['image_index', 'height', 'width', 'channels'], name='images')
 
 background_RGB_images.to_netcdf('/storage/users/Muciaccia/background_RGB_images.netCDF4', format='NETCDF4')

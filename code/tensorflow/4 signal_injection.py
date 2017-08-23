@@ -27,7 +27,13 @@ import matplotlib
 matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
 from matplotlib import pyplot
 
-RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy') # TODO file di 4 GB
+dataset = xarray.open_mfdataset('/storage/users/Muciaccia/background_RGB_images/*.netCDF4', concat_dim='image_index')
+# dataset.images
+1 (2.2) 3.2 (4.8) 8
+# TODO capire il perché della differenza in ram tra la struttura di xarray e quella di numpy (xarray occupa circa il doppio di numpy!)
+
+RGB_images = dataset.images
+#RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy') # TODO file di 4 GB
 # TODO mettere tutto su xarray perché serve un database completo con tutti i label/classi e gli attributi
 
 number_of_samples, rows, columns, channels = RGB_images.shape
@@ -82,20 +88,21 @@ def safe_logarithm(image):
 
 # log_normalize(RGB_noise_example[:,:,0].flatten())
 # take the first 100 background images to make an istogram of their values with enough statistic
-R = safe_logarithm(RGB_images[0:100,:,:,0].flatten()) # 0.6 +- 0.1
-G = safe_logarithm(RGB_images[0:100,:,:,1].flatten())
-B = safe_logarithm(RGB_images[0:100,:,:,2].flatten())
+#R = safe_logarithm(RGB_images[0:100,:,:,0].flatten())
+R = numpy.log(RGB_images[0:100,:,:,0].values.flatten()) # 0.6 +- 0.1
+G = numpy.log(RGB_images[0:100,:,:,1].values.flatten())
+B = numpy.log(RGB_images[0:100,:,:,2].values.flatten())
 
 pyplot.figure(figsize=[15,10])
 pyplot.title('background pixel values distribution')
 #pyplot.xlim([0,1])
-pyplot.xlim([-20,-10])
+pyplot.xlim([-10,5]) # -20, -10
 pyplot.xlabel('logarithm of not-zero background pixel values')
 pyplot.ylabel('count')
 pyplot.hist([R,G,B], 
             bins=250,
             #range=[0,1],
-            range=[-20,-10],
+            range=[-10,5], # -20, -10
             label=['H O2 C01',
                    'L O2 C01',
                    'V VSR4 (shifted)'], # TODO imporre ordine RGB nella legenda (ordine di plot)
@@ -105,7 +112,7 @@ pyplot.hist([R,G,B],
             #fill=True,
             #alpha=0.1)
 pyplot.vlines(x=numpy.log(1e-6), ymin=0, ymax=40000, color='black', label='level of the injected signal (1e-6)')
-pyplot.legend(loc='upper right', frameon=False)
+pyplot.legend(loc='upper left', frameon=False)
 pyplot.savefig('/storage/users/Muciaccia/media/background_histograms.svg')
 #pyplot.show()
 pyplot.close()
@@ -113,6 +120,9 @@ pyplot.close()
 # TODO vedere se si può un pochino aumentare il contrasto dell'immagine centrando meglio gli estremi di minimo e massimo
 # TODO valutare se normalizzare l'istogramma
 
+# non si usano la scala logaritmica o il binning logaritmico perché sottendono molte più technicalities (come nell'articolo citato da AMS)
+
+# TODO il whitening porta tutti i log-valori dei pixel attorno a zero, questo penso che faliciterà e velocizzerà il processo del training
 
 # TODO rifare l'istogramma in scala non riscalata, in modo da capire veramente a che livello sono i dati e di che numeri si sta parlando
 
@@ -153,9 +163,10 @@ def add_signal(image, signal_intensity = 1e-5): # un segnale di 1e-5 si vede ben
     
     t = numpy.arange(signal_starting_time, signal_ending_time)
     f = numpy.round(m*t+b).astype(int)
-        
+    
     flagged_values = numpy.equal(image, 0)
     image[f, t] += signal_intensity
+    # TODO valutare l'addizione di una matrice sparsa
     
     # le modifiche si ripercuotono direttamente sul tensore RGB_images perché queste sono views e non copie
     # TODO per poi fare signal-to-noise ratio

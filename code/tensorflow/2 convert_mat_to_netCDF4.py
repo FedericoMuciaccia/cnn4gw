@@ -19,6 +19,7 @@ import numpy
 import xarray
 import scipy.io
 import scipy.stats
+import pandas
 import matplotlib
 from matplotlib import pyplot
 import astropy.time
@@ -44,6 +45,7 @@ import glob
 file_path = altro_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/L/01-Apr-2017 01:07:58.000000.mat'
 H_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/H/01-Apr-2017 01:07:58.000000.mat'
 file_path = '/storage/users/Muciaccia/mat/O2/C01/128Hz/V/01-Sep-2011 00:26:25.000000.mat'
+file_path = '/storage/users/Muciaccia/prova_H.mat'
 
 # TODO scipy does not support v7.3 mat-files
 # matlab --v7.3 files are hdf5 datasets
@@ -131,6 +133,7 @@ def process_file(file_path):
     
     # load the .mat file, squeezing all the useless Matlab extra dimensions
     s = scipy.io.loadmat(file_path, squeeze_me=True)
+    # TODO vedere se c'è modo di aprire direttamente i .mat v7.3 tramite h5
     
     minimum_frequency = s['starting_fft_frequency'] # 0 Hz
     maximum_frequency = 128 # TODO hardcoded # TODO magari si può ottenere dal tempo di sottocampionamento # TODO 1/(2*s['subsampling_time'])
@@ -190,7 +193,7 @@ def process_file(file_path):
     selected_autoregressive_spectrum = numpy.transpose(selected_autoregressive_spectrum)
     selected_periodogram = numpy.transpose(selected_periodogram)
     
-    # all the following filter selections are evaluated in the interesting frequency band only
+    # all the following filter selections are evaluated in the interesting frequency band only (from 80 to 120 Hz)
     # in this way we do not waste good samples that have minor problems outside the region of interst
     
     # all-empty FFTs are immediately discarded 
@@ -199,6 +202,7 @@ def process_file(file_path):
     
     has_not_many_temporal_holes = percentage_of_zeros < 0.2 # less than 20% zeros in the time domain
     
+    # TODO farne un istogramma per stabilire una soglia che sia data-driven
     
     #goods = [16, 17, 18, 19, 20, 21, 63, 64, 75, 76, 77, 82, 83, 94]
     
@@ -246,7 +250,7 @@ def process_file(file_path):
     goodness_constraints = numpy.all([is_not_empty, has_not_many_temporal_holes, is_consistent], axis=0) # check if all conditions are satisfied (like with logical and)
     
     # if there isn't any good FFT (that is: if all FFTs are bad)
-    # (this if statement is required because in the calculation of the median we cannot divide by zero)
+    # (this 'if' statement is required because in the calculation of the median we cannot divide by zero)
     if numpy.all(goodness_constraints == False): #if not numpy.any(goodness_constraints):
         is_science_ready = goodness_constraints # all False
     else:
@@ -258,6 +262,34 @@ def process_file(file_path):
     is_flagged = numpy.logical_not(is_science_ready)
     
     # TODO plottare gli istogrammi (magari 2D sui 2 detector) per trovare i tagli ottimali
+    
+    
+    
+    def relative_difference(a,b):
+        return a/b -1 # (a-b)/b = (a/b)-1
+    
+    is_empty
+    percentage_of_zeros
+    first_relative_difference = numpy.abs(relative_difference(periodogram_median, autoregressive_spectrum_median))
+    first_relative_difference[numpy.isnan(first_relative_difference)] = 10 # TODO dummy value
+    a = first_relative_difference # less than 0.1
+    second_relative_difference = numpy.abs(relative_difference(autoregressive_spectrum_median, middle_value))
+    b = second_relative_difference # less than 0.5
+    is_science_ready
+    
+    pyplot.figure(figsize=[10,10])
+    #pyplot.hist2d(a,b, bins=100, range=[[0, 1],[0,1]], cmap='gray_r')
+    #pyplot.scatter(a,b)
+    #pyplot.xscale('log')
+    #pyplot.yscale('log')
+    pyplot.loglog(a,b, marker='o', linestyle='None')
+    pyplot.title('spectra selection ')
+    pyplot.xlabel('abs(relative_difference(median(periodogram), median(autoregressive_spectrum)))')
+    pyplot.ylabel('abs(relative_difference(median(autoregressive_spectrum), middle_value))')
+    #pyplot.savefig('/storage/users/Muciaccia/media/spectra_selection.jpg')
+    pyplot.show()
+    pyplot.close()
+    
     
     
     detector = s['detector']
@@ -286,10 +318,8 @@ def process_file(file_path):
     # TODO pandas.CategoricalIndex pandas.IndexSlice pandas.IntervalIndex pandas.MultiIndex pandas.SparseArray pandas.TimedeltaIndex
     
     
-    # TODO mettere GPS_time in float64
-    
     gps_time = astropy.time.Time(val=s['gps_time'], format='gps', scale='utc')
-    gps_time_values = gps_time.value.astype(numpy.float32)
+    gps_time_values = gps_time.value.astype(numpy.float64) # TODO
     
     # ISO 8601 compliant date-time format: YYYY-MM-DD HH:MM:SS.sss
     iso_time_values = gps_time.iso
@@ -436,19 +466,28 @@ def process_file(file_path):
     # 'sigma' asimmetrica =? 68% 50% quartile larghezza_a_mezza_altezza
     # TODO i dati in logaritmo sono in unità di sigma? lo sbiancamento non dovrebbe risultare gaussiano? come si assegnano i valori di confidenza a 2.5 sigma se la distribuzione è asimmetrica? bisogna anche dividere per 8192/2? dato che l'operazione di whitening è una divisione in Fourier, si può mappare in una convoluzione nello spazio reale? come è fatto lo spettro autoregressivo? è frutto di una convolutione anche lui? "The resulting time series is no longer in units of strain; now in units of 'sigmas' away from the mean"
     
+    
     # create a unitary structure to return
     
     selected_frequencies = numpy.single(selected_frequencies) # float32
-    gps_time_values = numpy.single(gps_time_values) # float32
+    #gps_time_values = numpy.double(gps_time_values) # float64 (questa precisione è assolutamente necessaria per evitare grossi errori di troncamento, dell'ordine delle decine di secondi)
+    #datetimes = pandas.date_range(start=human_readable_start_time, freq='4096s', tz='UTC', periods=100) # 8192/2 = 4096
+    datetimes = pandas.to_datetime(iso_time_values) # TODO BUG: utc=True non funziona quando si inporta tutto in xarray (forse perché il dtype='datetime64[ns, UTC]' non è supportato)
+    # dataset.time.dt.day
+    # dataset.time.dt.dayofyear
+    # http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+    # netcdftime.DateFromJulianDay
     
-    coordinate_names = ['frequency','GPS_time','detector'] # 3 detectors, so we are preparing an RGB image
-    coordinate_values = [selected_frequencies, gps_time_values, [detector]]
+    coordinate_names = ['frequency','time','detector'] # 3 detectors, so we are preparing an RGB image
+    coordinate_values = [selected_frequencies, datetimes, [detector]]
     attributes = {'FFT_lenght': fft_lenght,
                   'observing_run': 'O2', # TODO hardcoded (estrarlo dal file path)
                   'calibration': 'C01', # TODO hardcoded
                   'maximum_frequency': maximum_frequency, # TODO hardcoded
-                  'start_ISO_time':human_readable_start_time} # TODO metterlo come attibuto del singolo spettrogramma (e levarlo dal file complessivo)
-    # TODO mettere anche tutti gli altri attributi interessanti come are_fft_interlaced = True
+                  'start_ISO_time': human_readable_start_time} # TODO metterlo come attibuto del singolo spettrogramma (e levarlo dal file complessivo)
+    # TODO mettere anche tutti gli altri attributi interessanti come 'FFT_interlaced' = 1 # TODO BUG: True (booleano) non se lo piglia
+    
+    # TODO per evitare ripetizioni, prima definire i DataArray delle coordinate e poi chiamare quelli per i costrutti di tutte le altre variabili
     
     spectrogram = xarray.DataArray(data=numpy.expand_dims(numpy.transpose(selected_power_spectrum), axis=-1), 
                                    dims=coordinate_names, 
@@ -457,12 +496,13 @@ def process_file(file_path):
                                             dims=coordinate_names, 
                                             coords=coordinate_values)
     locally_science_ready = xarray.DataArray(data=numpy.expand_dims(is_science_ready, axis=-1), 
-                            dims=['GPS_time','detector'], 
-                            coords=[gps_time_values, [detector]]) # TODO [detector] VS detector
+                            dims=['time','detector'], 
+                            coords=[datetimes, [detector]]) # TODO [detector] VS detector
     
-    dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 'whitened_spectrogram':whitened_spectrogram, 'locally_science_ready':locally_science_ready}, 
-                        coords={'frequency':selected_frequencies,'GPS_time':gps_time_values}, 
-                        attrs=attributes)
+    dataset = xarray.Dataset(data_vars={'spectrogram':spectrogram, 
+                                        'whitened_spectrogram':whitened_spectrogram, 
+                                        'locally_science_ready':locally_science_ready}, 
+                             attrs=attributes)
     
     return dataset
     # TODO make an option to return the raw dataset (converted in netCDF4 format) without the flagged values putted to zero
@@ -525,6 +565,7 @@ def process_folder(path):
 
 process_folder('/storage/users/Muciaccia/mat/')
 #process_folder('/storage/users/Muciaccia/mat/O2/C01/128Hz/V/')
+#process_folder('/media/federico/Esterno/Federico/dati LIGO e Virgo/storage/users/Muciaccia/mat/O2/C01/128Hz/V/')
 
 exit()
 

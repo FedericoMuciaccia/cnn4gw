@@ -51,6 +51,8 @@ if white_noise: # TODO
 
     power_spectrum = numpy.expand_dims(power_spectrum, axis=-1)
 
+# TODO trovare il valore di white noise che meglio approssima i dati, perlo poi così confrontare con il valore del segnale iniettato
+
 # tutti uni
 power_spectrum = 1e-6 * numpy.ones_like(V_dataset.spectrogram)
 
