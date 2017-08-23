@@ -265,30 +265,30 @@ def process_file(file_path):
     
     
     
-    def relative_difference(a,b):
-        return a/b -1 # (a-b)/b = (a/b)-1
-    
-    is_empty
-    percentage_of_zeros
-    first_relative_difference = numpy.abs(relative_difference(periodogram_median, autoregressive_spectrum_median))
-    first_relative_difference[numpy.isnan(first_relative_difference)] = 10 # TODO dummy value
-    a = first_relative_difference # less than 0.1
-    second_relative_difference = numpy.abs(relative_difference(autoregressive_spectrum_median, middle_value))
-    b = second_relative_difference # less than 0.5
-    is_science_ready
-    
-    pyplot.figure(figsize=[10,10])
-    #pyplot.hist2d(a,b, bins=100, range=[[0, 1],[0,1]], cmap='gray_r')
-    #pyplot.scatter(a,b)
-    #pyplot.xscale('log')
-    #pyplot.yscale('log')
-    pyplot.loglog(a,b, marker='o', linestyle='None')
-    pyplot.title('spectra selection ')
-    pyplot.xlabel('abs(relative_difference(median(periodogram), median(autoregressive_spectrum)))')
-    pyplot.ylabel('abs(relative_difference(median(autoregressive_spectrum), middle_value))')
-    #pyplot.savefig('/storage/users/Muciaccia/media/spectra_selection.jpg')
-    pyplot.show()
-    pyplot.close()
+#    def relative_difference(a,b):
+#        return a/b -1 # (a-b)/b = (a/b)-1
+#    
+#    is_empty
+#    percentage_of_zeros
+#    first_relative_difference = numpy.abs(relative_difference(periodogram_median, autoregressive_spectrum_median))
+#    first_relative_difference[numpy.isnan(first_relative_difference)] = 10 # TODO dummy value
+#    a = first_relative_difference # less than 0.1
+#    second_relative_difference = numpy.abs(relative_difference(autoregressive_spectrum_median, middle_value))
+#    b = second_relative_difference # less than 0.5
+#    is_science_ready
+#    
+#    pyplot.figure(figsize=[10,10])
+#    #pyplot.hist2d(a,b, bins=100, range=[[0, 1],[0,1]], cmap='gray_r')
+#    #pyplot.scatter(a,b)
+#    #pyplot.xscale('log')
+#    #pyplot.yscale('log')
+#    pyplot.loglog(a,b, marker='o', linestyle='None')
+#    pyplot.title('spectra selection ')
+#    pyplot.xlabel('abs(relative_difference(median(periodogram), median(autoregressive_spectrum)))')
+#    pyplot.ylabel('abs(relative_difference(median(autoregressive_spectrum), middle_value))')
+#    #pyplot.savefig('/storage/users/Muciaccia/media/spectra_selection.jpg')
+#    pyplot.show()
+#    pyplot.close()
     
     
     
