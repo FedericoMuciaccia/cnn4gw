@@ -51,10 +51,13 @@ def log_normalize(image):
     # final RGB pixels must be a float from 0 to 1
 #    image[image < 0] = 0 # per evitare problemi col gaussian white noise
     # TODO controllare i livelli di minimo e massimo del rumore
-    log_minimum = 20 # TODO col segno meno (x_min = 1e-20)
-    log_maximum = 10 # TODO col segno meno (x_max = 1e-10)
-    log_image = numpy.log(image) + log_minimum
-    log_image = log_image/log_maximum
+    #log_minimum = -20 # (x_min = 1e-20)
+    #log_maximum = -10 # (x_max = 1e-10)
+    log_minimum = -7
+    log_maximum = 3
+    log_image = numpy.log(image) - log_minimum
+    delta = log_maximum-log_minimum
+    log_image = log_image/delta
     # TODO BUG in python/numpy non c'è un modo elegante per rappresentare le parentesi nelle espressioni matematiche senza che vengano create inutili tuple
     # TODO gestire gli infiniti senza rovinare il white noise
     #log_image[numpy.isinf(log_image)] = 0
@@ -98,7 +101,7 @@ pyplot.figure(figsize=[15,10])
 pyplot.title('background pixel values distribution')
 #pyplot.xlim([0,1])
 pyplot.xlim([-10,5]) # -20, -10
-pyplot.xlabel('logarithm of not-zero background pixel values')
+pyplot.xlabel('logarithm of not-zero pixel values')
 pyplot.ylabel('count')
 pyplot.hist([R,G,B],
             bins=250,
@@ -136,7 +139,7 @@ pyplot.close()
 # inietto direttamente un pattern nel dominio delle frequenze
 # una sinusoide troncata con un certo spindown appare nello spettrogramma semplicemente come un segmento inclinato verso il basso
 
-def add_signal(image, signal_intensity = 1): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
+def add_signal(image, signal_intensity = 10): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
     rows, columns, channels = image.shape
     
     max_spindown = 16
@@ -205,6 +208,49 @@ for i in range(number_of_samples):
 #        add_signal(images[i])
 ## TODO BUG: NON FUNZIONA (forse perché le funzioni di python generano copie e non views)
 #inject_signal(RGB_images[has_signal])
+
+
+
+
+# TODO filtrare su solo quelli che hanno effettivamente il segnale dentro
+
+R = numpy.log(RGB_images[0:100,:,:,0].flatten()) # 0.6 +- 0.1
+G = numpy.log(RGB_images[0:100,:,:,1].flatten())
+B = numpy.log(RGB_images[0:100,:,:,2].flatten())
+
+# TODO magari fare qui il logaritmo in base 10 e mettere a mano i tick sulle x con le potenze di 10
+pyplot.figure(figsize=[15,10])
+pyplot.title('background+signal pixel values distribution')
+#pyplot.xlim([0,1])
+pyplot.xlim([-10,5]) # -20, -10
+pyplot.xlabel('logarithm of not-zero pixel values')
+pyplot.ylabel('count')
+pyplot.hist([R,G,B],
+            bins=250,
+            #range=[0,1],
+            range=[-10,5], # -20, -10
+            label=['H O2 C01',
+                   'L O2 C01',
+                   'V VSR4 (shifted)'], # TODO imporre ordine RGB nella legenda (ordine di plot)
+            color=['red','green','blue'],
+            histtype='step')
+            #linewidth=2,
+            #fill=True,
+            #alpha=0.1)
+#pyplot.vlines(x=numpy.log(1e-6), ymin=0, ymax=40000, color='black', label='level of the injected signal (1e-6)')
+pyplot.vlines(x=numpy.log(2.5), ymin=0, ymax=40000, color='orange', label='peakmap threshold = 2.5')
+pyplot.vlines(x=numpy.log(numpy.e), ymin=0, ymax=40000, color='black', label='level of the injected signal (log(e) = 1 > log(2.5) = 0.92)')
+pyplot.legend(loc='upper left', frameon=False)
+pyplot.savefig('/storage/users/Muciaccia/media/background_plus_signal_histograms.svg')
+#pyplot.show()
+pyplot.close()
+
+
+
+
+
+
+
 
 #i = 0
 #for image in RGB_images[0:10]:
