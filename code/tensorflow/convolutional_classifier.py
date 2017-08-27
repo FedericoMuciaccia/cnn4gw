@@ -96,7 +96,8 @@ validation_classes = dataset.classes.where(dataset.is_for_validation, drop=True)
 
 # classifier parameters
 sample_number, rows, columns, channels = dataset.images.shape
-number_of_classes = dataset.categories.size # 2
+sample_number, number_of_classes = dataset.categories.shape
+# two classes
 
 # training parameters
 # learning_rate = 0.001 # TODO is the initial value?
