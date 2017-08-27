@@ -32,7 +32,7 @@ dataset = xarray.open_mfdataset('/storage/users/Muciaccia/background_RGB_images/
 # TODO capire il perché della differenza in ram tra la struttura di xarray e quella di numpy (xarray occupa circa il doppio di numpy!)
 # TODO perché nella concatenazione, non so perché, i float32 vengono convertiti in float64 # TODO !!!
 
-RGB_images = dataset.images
+RGB_images = dataset.images.values # TODO workaround perché altrimenti non so come fare l'assegnazione sui pixel di segnale
 #RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy') # TODO file di 4 GB
 # TODO mettere tutto su xarray perché serve un database completo con tutti i label/classi e gli attributi
 
@@ -89,9 +89,9 @@ def safe_logarithm(image):
 # log_normalize(RGB_noise_example[:,:,0].flatten())
 # take the first 100 background images to make an istogram of their values with enough statistic
 #R = safe_logarithm(RGB_images[0:100,:,:,0].flatten())
-R = numpy.log(RGB_images[0:100,:,:,0].values.flatten()) # 0.6 +- 0.1
-G = numpy.log(RGB_images[0:100,:,:,1].values.flatten())
-B = numpy.log(RGB_images[0:100,:,:,2].values.flatten())
+R = numpy.log(RGB_images[0:100,:,:,0].flatten()) # 0.6 +- 0.1
+G = numpy.log(RGB_images[0:100,:,:,1].flatten())
+B = numpy.log(RGB_images[0:100,:,:,2].flatten())
 
 # TODO magari fare qui il logaritmo in base 10 e mettere a mano i tick sulle x con le potenze di 10
 pyplot.figure(figsize=[15,10])
@@ -136,7 +136,7 @@ pyplot.close()
 # inietto direttamente un pattern nel dominio delle frequenze
 # una sinusoide troncata con un certo spindown appare nello spettrogramma semplicemente come un segmento inclinato verso il basso
 
-def add_signal(image, signal_intensity = 1e-5): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
+def add_signal(image, signal_intensity = 1): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
     rows, columns, channels = image.shape
     
     max_spindown = 16
@@ -168,7 +168,12 @@ def add_signal(image, signal_intensity = 1e-5): # un segnale di 1e-5 si vede ben
     f = numpy.round(m*t+b).astype(int)
     
     flagged_values = numpy.equal(image, 0)
+    
     image[f, t] += signal_intensity
+    
+    #signal_image = numpy.zeros_like(image)
+    #signal_image[f, t] += signal_intensity
+    #image += signal_image
     # TODO valutare l'addizione di una matrice sparsa
     
     # le modifiche si ripercuotono direttamente sul tensore RGB_images perché queste sono views e non copie
