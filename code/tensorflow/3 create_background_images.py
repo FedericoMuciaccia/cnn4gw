@@ -70,7 +70,7 @@ V_dataset.update({'time':new_times}) # V_dataset['time'] = new_times
 V_dataset['spectrogram'] = V_dataset.spectrogram * numpy.exp(-4)
 
 dataset = xarray.concat([H_dataset,L_dataset,V_dataset], dim='detector')
-
+# TODO attenzione che qui viene tutto per sbaglio convertito in float64
 
 a = xarray.DataArray(data=numpy.random.rand(5,5).astype('float32'), dims=['x','y'])
 b = xarray.DataArray(data=numpy.round(numpy.random.rand(5)).astype(bool), dims=['x'])
@@ -328,7 +328,8 @@ def process_time_slice(time_slice):
 
     a = numpy.split(good_dataset.whitened_spectrogram,frequency_divisions,axis=dataset.whitened_spectrogram.get_axis_num('frequency'))
     b = numpy.stack(a, axis=0)
-    c = xarray.DataArray(data=b, dims=['image_index', 'height', 'width', 'channels'], name='images', attrs=dict(start_time=str(starting_time))) # TODO inserire anche starting_frequecy negli attributi
+    # TODO BUG # TODO hack per aggirare il BUG di xarray che concatena erroneamente in float64
+    c = xarray.DataArray(data=b.astype('float32'), dims=['image_index', 'height', 'width', 'channels'], name='images', attrs=dict(start_time=str(starting_time))) # TODO inserire anche starting_frequecy negli attributi
     c.to_netcdf('/storage/users/Muciaccia/background_RGB_images/{}.netCDF4'.format(starting_time), format='NETCDF4')
 
 

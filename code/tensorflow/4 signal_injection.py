@@ -29,8 +29,8 @@ from matplotlib import pyplot
 
 dataset = xarray.open_mfdataset('/storage/users/Muciaccia/background_RGB_images/*.netCDF4', concat_dim='image_index')
 # dataset.images
-1 (2.2) 3.2 (4.8) 8
 # TODO capire il perché della differenza in ram tra la struttura di xarray e quella di numpy (xarray occupa circa il doppio di numpy!)
+# TODO perché nella concatenazione, non so perché, i float32 vengono convertiti in float64 # TODO !!!
 
 RGB_images = dataset.images
 #RGB_images = numpy.load('/storage/users/Muciaccia/background_RGB_images.npy') # TODO file di 4 GB
