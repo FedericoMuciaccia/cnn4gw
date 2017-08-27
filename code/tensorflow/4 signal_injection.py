@@ -93,13 +93,14 @@ R = numpy.log(RGB_images[0:100,:,:,0].values.flatten()) # 0.6 +- 0.1
 G = numpy.log(RGB_images[0:100,:,:,1].values.flatten())
 B = numpy.log(RGB_images[0:100,:,:,2].values.flatten())
 
+# TODO magari fare qui il logaritmo in base 10 e mettere a mano i tick sulle x con le potenze di 10
 pyplot.figure(figsize=[15,10])
 pyplot.title('background pixel values distribution')
 #pyplot.xlim([0,1])
 pyplot.xlim([-10,5]) # -20, -10
 pyplot.xlabel('logarithm of not-zero background pixel values')
 pyplot.ylabel('count')
-pyplot.hist([R,G,B], 
+pyplot.hist([R,G,B],
             bins=250,
             #range=[0,1],
             range=[-10,5], # -20, -10
@@ -111,7 +112,9 @@ pyplot.hist([R,G,B],
             #linewidth=2,
             #fill=True,
             #alpha=0.1)
-pyplot.vlines(x=numpy.log(1e-6), ymin=0, ymax=40000, color='black', label='level of the injected signal (1e-6)')
+#pyplot.vlines(x=numpy.log(1e-6), ymin=0, ymax=40000, color='black', label='level of the injected signal (1e-6)')
+pyplot.vlines(x=numpy.log(2.5), ymin=0, ymax=40000, color='orange', label='peakmap threshold = 2.5')
+pyplot.vlines(x=numpy.log(numpy.e), ymin=0, ymax=40000, color='black', label='level of the injected signal (log(e) = 1 > log(2.5) = 0.92)')
 pyplot.legend(loc='upper left', frameon=False)
 pyplot.savefig('/storage/users/Muciaccia/media/background_histograms.svg')
 #pyplot.show()

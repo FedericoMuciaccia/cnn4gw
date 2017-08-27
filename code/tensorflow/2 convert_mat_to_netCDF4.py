@@ -129,6 +129,18 @@ show_time_data = True # TODO plottare i dati nel tempo per vedere le sequenze te
 
 #%%%%%%%%%%%%%%%%%%%
 
+#noise_characterization = {}
+#noise_characterization['spectra_relative_difference'] = []
+##noise_characterization['values_relative_difference'] = []
+#noise_characterization['autoregressive_spectrum_median'] = []
+##noise_characterization['is_not_empty'] = []
+#noise_characterization['percentage_of_zeros'] = []
+#noise_characterization['is_science_ready'] = []
+#noise_characterization['detector'] = []
+
+def relative_difference(a,b):
+    return a/b -1 # (a-b)/b = (a/b)-1
+
 def process_file(file_path):
     
     # load the .mat file, squeezing all the useless Matlab extra dimensions
@@ -201,6 +213,7 @@ def process_file(file_path):
     is_not_empty = numpy.logical_not(is_empty)
     
     has_not_many_temporal_holes = percentage_of_zeros < 0.2 # less than 20% zeros in the time domain
+    # TODO vedere quanto percentage_of_zeros sia necessario a posteriori degli altri filtri sul rumore
     
     # TODO farne un istogramma per stabilire una soglia che sia data-driven
     
@@ -235,7 +248,10 @@ def process_file(file_path):
     # TODO farlo con numpy.any
         
     # TODO il valore basale del rumore è diverso per tutti e 3 i detector
-    is_consistent = numpy.isclose(periodogram_median, autoregressive_spectrum_median, rtol=0.1) # relative_tolerance = 10% # TODO fine tuned
+    spectra_relative_difference = numpy.abs(relative_difference(periodogram_median, autoregressive_spectrum_median)) # some values are NaN
+    is_consistent = spectra_relative_difference < 0.1 # numpy.nan < 0.1 evaluates to False, so everything is ok
+    #is_consistent = numpy.isclose(periodogram_median, autoregressive_spectrum_median, rtol=0.1) # pay attention: numpy.isclose returns True if the two spectra are empty (all zeros), while the previous method uses the NaN while dividing by zero and correctly classify the spectra as not consistent
+    # relative_tolerance = 10% # TODO fine tuned threshold
     # TODO MA gli vanno levati gli is_empty (perché la tolleranza relativa con gli zeri ha problemi) (is_close and not is_empty)
     # TODO new elementwise comparison: numpy.equal
     
@@ -254,6 +270,7 @@ def process_file(file_path):
     if numpy.all(goodness_constraints == False): #if not numpy.any(goodness_constraints):
         is_science_ready = goodness_constraints # all False
     else:
+        # evaluating the middle_value makes sense only for the already-proven good FFTs (it's a fine-tuning selection). otherwise the middle_value will be influenced by the already-proven bad values
         middle_value = numpy.median(autoregressive_spectrum_median[goodness_constraints])
         is_in_the_usual_range = numpy.isclose(autoregressive_spectrum_median, middle_value, rtol=0.5) # relative_tolerance = 50% # TODO fine tuned
 
@@ -261,22 +278,26 @@ def process_file(file_path):
         is_science_ready = numpy.logical_and(goodness_constraints, is_in_the_usual_range)
     is_flagged = numpy.logical_not(is_science_ready)
     
+    detector = s['detector']
+    
+    
+    
+    
+    
     # TODO plottare gli istogrammi (magari 2D sui 2 detector) per trovare i tagli ottimali
     
-    
-    
-#    def relative_difference(a,b):
-#        return a/b -1 # (a-b)/b = (a/b)-1
 #    
-#    is_empty
-#    percentage_of_zeros
-#    first_relative_difference = numpy.abs(relative_difference(periodogram_median, autoregressive_spectrum_median))
-#    first_relative_difference[numpy.isnan(first_relative_difference)] = 10 # TODO dummy value
-#    a = first_relative_difference # less than 0.1
-#    second_relative_difference = numpy.abs(relative_difference(autoregressive_spectrum_median, middle_value))
-#    b = second_relative_difference # less than 0.5
+#    spectra_relative_difference[numpy.isnan(spectra_relative_difference)] = 10 # TODO dummy value
+#    
+#    a = spectra_relative_difference # less than 0.1
+#    values_relative_difference = numpy.abs(relative_difference(autoregressive_spectrum_median, middle_value))
+#    b = values_relative_difference # less than 0.5
 #    is_science_ready
 #    
+
+#    # for a given detector
+#    a = spectra_relative_difference[is_not_empty]
+#    b = autoregressive_spectrum_median[is_not_empty]
 #    pyplot.figure(figsize=[10,10])
 #    #pyplot.hist2d(a,b, bins=100, range=[[0, 1],[0,1]], cmap='gray_r')
 #    #pyplot.scatter(a,b)
@@ -288,11 +309,28 @@ def process_file(file_path):
 #    pyplot.ylabel('abs(relative_difference(median(autoregressive_spectrum), middle_value))')
 #    #pyplot.savefig('/storage/users/Muciaccia/media/spectra_selection.jpg')
 #    pyplot.show()
-#    pyplot.close()
+#    #pyplot.close()
+    
+#    noise_characterization['spectra_relative_difference'].append(spectra_relative_difference[is_not_empty])
+#    #noise_characterization['values_relative_difference'] = []
+#    noise_characterization['autoregressive_spectrum_median'].append(autoregressive_spectrum_median[is_not_empty])
+#    #noise_characterization['is_not_empty'].append(is_not_empty)
+#    noise_characterization['percentage_of_zeros'].append(percentage_of_zeros[is_not_empty])
+#    noise_characterization['is_science_ready'].append(is_science_ready[is_not_empty])
+#    noise_characterization['detector'].append(detector)
+    
+#    pyplot.hist(spectra_relative_difference[is_not_empty], bins=100, range=[0,1]);pyplot.show()
+#    a = relative_difference(periodogram, autoregressive_spectrum) # without numpy.abs(...)
+#    b = a[is_not_empty]
+#    c = numpy.median(b, axis=1)
+#    pyplot.hist(c, bins=100, range=[-1,1]);pyplot.show()
+    
+#    # TODO serve capire esattamente come sono calcolati periodogramma e spettro autoregressivo, perché spesso ci sono degli spettri che mi sembrano assolutamente buoni, ma che hanno una differenza apprezzabile tra le due curve: non vorrei che così facendo stiamo buttando inutilmente un sacco di dati buoni (magari la differenza tra le due curve è anche funzione della percentuale di zeri)    
     
     
     
-    detector = s['detector']
+    
+    
     
     #clean_power_spectrum = power_spectrum[is_science_ready]
     #clean_autoregressive_spectrum = autoregressive_spectrum[is_science_ready]
@@ -301,9 +339,6 @@ def process_file(file_path):
     #clean_selected_power_spectrum = selected_power_spectrum[is_science_ready]
     #clean_selected_autoregressive_spectrum = selected_autoregressive_spectrum[is_science_ready]
     #clean_selected_periodogram = selected_periodogram[is_science_ready]
-    
-    
-    
     
 #    if detector == 'Virgo': # TODO temporary hack for the VSR4 dataset
 #        desired_gps_start_time = astropy.time.Time(val='2017-01-01 00:00:00.000', format='iso', scale='utc').gps
@@ -551,6 +586,7 @@ def process_folder(path):
 #    datasets = []
     for mat_file in mat_files: # TODO questo ciclo è totalmente parallelizzabile
 #        datasets.append(process_file(mat_file))
+        # TODO magari spostare l'operazione di salvataggio su disco direttamente dentro la definizione della funzione
         dataset = process_file(mat_file)
         detector = str(numpy.squeeze(dataset.detector.values))
         print('Saving /storage/users/Muciaccia/netCDF4/O2/C01/128Hz/{} {}.netCDF4'.format(detector, dataset.start_ISO_time)) # TODO hardcoded

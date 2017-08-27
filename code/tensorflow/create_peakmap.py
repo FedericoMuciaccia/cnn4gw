@@ -103,6 +103,18 @@ numpy.squeeze(peakmap[0:256,0:128]).plot(cmap='gray_r'); pyplot.show()
 
 # TODO vedere libreria python fatta da quelli di LIGO
 
+    peakmap e massimi locali forse rumorosi
+    sqrt(2.5) non in log (mediana=1) (MA non sotto radice perché uso gli spettri al quadrato)
+    numpy.log(2.5) = 0.9162 (mettere riferimenti ad articoli)
+    lo sbiancamento non è gaussiano, è solo bianco. non ci sono 'sigma'
+    solo massimi locali
+    segnale vero stretto, disturbo largo. i picchi stretti (CW) sopravvivono allo sbiancamento. dunque si può anche iniettare il segnale dopo lo sbiancamento
+    estrarre parametri e durata del segnale e localizzazione in frequenza per darlo alla Hough gerarchica (per massimizzare il suo rapporto segnale/rumore)
+    confronto sotto soglia della Hough
+    la Hough è solo per il bianco e il nero: non funziona per i toni di grigio
+    segnale transiente dal merger di stella di neutroni
+    whitening con R 'ratio'        
+
 
 
 
