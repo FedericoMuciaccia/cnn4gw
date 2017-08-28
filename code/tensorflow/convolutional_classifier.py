@@ -24,6 +24,10 @@ import time
 
 import xarray
 
+import matplotlib
+matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
+from matplotlib import pyplot
+
 # TODO aumentare numero immagini (out-of-memory)
 # TODO mettere batch_normalization
 # TODO provare con la mediana invece che la media
@@ -56,6 +60,7 @@ dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4') #, chun
 # TODO BUG di xarray: su jupyter-console quando si preme Tab per vedere l'autocompletamento dei metodi di un dataset, questo viene inutilmente caricato tutto in memoria, anche se ha un chunksize ridotto (e poi molta memoria viene subito dopo liberata, ma il fatto di essere stata temporaneamente massicciamente occupata alle volte questo crea problemi a jupyter-console fino addirittura ad interrompergli il kernel di esecuzione).
 
 #dataset.images.where(dataset.is_noise_only & dataset.is_for_validation, drop=True)
+# TODO questa selezione credo dovrebbe essere fatta a monte
 train_images = dataset.images.where(numpy.logical_not(dataset.is_for_validation), drop=True) #.values
 validation_images = dataset.images.where(dataset.is_for_validation, drop=True) #.values
 # TODO chunks di 128 o 64 immagini
@@ -94,6 +99,19 @@ validation_classes = dataset.classes.where(dataset.is_for_validation, drop=True)
 
 # TODO rendere ['noise', 'noise+signal'] una dimensione
 # TODO rendere ['train', 'validation'] una dimensione
+
+# check if the images are correct
+def plot_it(index):
+    pyplot.figure(figsize=[10,10*256/148])
+    pyplot.imshow(dataset.images[index], origin='lower', interpolation='none')
+    pyplot.show()
+    print('class:', dataset.classes[index].values)
+
+first_noise_index = int(numpy.argmax(dataset.classes.sel(label='noise')))
+first_noise_plus_signal_index = int(numpy.argmax(dataset.classes.sel(label='noise+signal')))
+
+plot_it(first_noise_index)
+plot_it(first_noise_plus_signal_index)
 
 # classifier parameters
 sample_number, rows, columns, channels = dataset.images.shape
@@ -226,10 +244,10 @@ def neural_network(images): #, weights, biases):
     
     # convolutional part
     # TODO tf.slim.repeat
-    convolutional_layers = 4
+    convolutional_layers = 5
     #output_features = [8,8,16,16,32]
-    output_features = [9,9,9,9]
-    kernel_sizes = [[3,3],[3,3],[3,3],[3,3]]
+    output_features = [9,9,9,9,9]
+    kernel_sizes = [[3,3],[3,3],[3,3],[3,3],[3,3]]
     # TODO tf.contrib.slim.repeat
     # TODO vedere cos'è che fa parire il loss da livelli pazzeschi (tipo 10000)
     for layer in range(convolutional_layers): # TODO vedere se il for di python rallenta tutto
@@ -258,6 +276,8 @@ def neural_network(images): #, weights, biases):
                              # or tf.nn.conv2d
                              # or tf.contrib.layers.convolution2d
         
+        
+        # TODO provare local_response_normalization
 #        # batch normalization to reduce internal covariate shift
 #        # TODO vedere articolo. training mode (statistics of the current batch) or in inference mode (moving statistics)
 #        # reference: http://arxiv.org/abs/1502.03167
@@ -404,7 +424,7 @@ trainop = tflearn.TrainOp(loss=average_categorical_cross_entropy,
                           #validation_monitors
                           #step_tensor # TODO exponential decay
 
-trainer = tflearn.Trainer(train_ops=trainop, tensorboard_dir='/storage/users/Muciaccia/tflearn_logs/', tensorboard_verbose=0)
+trainer = tflearn.Trainer(train_ops=trainop, tensorboard_dir='/storage/users/Muciaccia/tflearn_logs/', tensorboard_verbose=3)
 
 trainer.fit(feed_dicts={images: train_images, true_classes: train_classes}, val_feed_dicts={images: validation_images, true_classes: validation_classes}, n_epoch=number_of_epochs, show_metric=True)
 # TODO run_id='signal amplitude = ...'
