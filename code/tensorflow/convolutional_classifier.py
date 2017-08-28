@@ -42,7 +42,8 @@ import xarray
 # TODO don't load everything in memory with huge datasets
 # TODO trainX, trainY, testX, testY = mnist.load_data(one_hot=True)
 
-dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4')#, chunks={'sample_index': 128}) # TODO è meglio lasciare che il chunck_size venga gestito internamente in maniera ottimale (il training risulta parecchio più veloce)
+# TODO valutare di usare direttamente i BSD nel dominio del tempo invece che gli SFDB
+dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4') #, chunks={'sample_index': 128}) # TODO è meglio lasciare che il chunck_size venga gestito internamente in maniera ottimale (il training risulta parecchio più veloce)
 
 # dataset.images[0:128].values.nbytes # slice(128)
 # ogni chunk da 128 immagini è grosso circa 100MB
@@ -108,7 +109,7 @@ batch_size = 128#64 # TODO massimo 512 per lo stochastic gradient descent (small
 #display_step = 10
 # TODO fare batch_size aggiustato automaticamente internamente dal software, per sfruttare le coincidenze tra i blocchi ed aumentare le frestazioni nel caso di dati letti out-of-memory (magari imporre proprio batch_size = chuncks[i])
 
-number_of_epochs = 50#100
+number_of_epochs = 100#50#100
 
 
 #random_order = np.arange(len(X))
