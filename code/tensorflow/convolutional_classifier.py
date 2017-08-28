@@ -100,19 +100,6 @@ validation_classes = dataset.classes.where(dataset.is_for_validation, drop=True)
 # TODO rendere ['noise', 'noise+signal'] una dimensione
 # TODO rendere ['train', 'validation'] una dimensione
 
-# check if the images are correct
-def plot_it(index):
-    pyplot.figure(figsize=[10,10*256/148])
-    pyplot.imshow(dataset.images[index], origin='lower', interpolation='none')
-    pyplot.show()
-    print('class:', dataset.classes[index].values)
-
-first_noise_index = int(numpy.argmax(dataset.classes.sel(label='noise')))
-first_noise_plus_signal_index = int(numpy.argmax(dataset.classes.sel(label='noise+signal')))
-
-plot_it(first_noise_index)
-plot_it(first_noise_plus_signal_index)
-
 # classifier parameters
 sample_number, rows, columns, channels = dataset.images.shape
 sample_number, number_of_classes = dataset.classes.shape
