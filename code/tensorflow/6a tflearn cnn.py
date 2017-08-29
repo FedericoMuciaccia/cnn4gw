@@ -16,13 +16,14 @@ import tflearn
 
 # build the convolutional network
 network = tflearn.layers.core.input_data(shape=[None, height, width, channels], name='input')
+network = tflearn.layers.core.dropout(network, 0.8)
 for i in range(6): # 6 convolutional block is the maximum dept with the given image size
     network = tflearn.layers.conv.conv_2d(network, nb_filter=9, filter_size=3, strides=1, padding='valid', activation='linear', bias=True, weights_init='uniform_scaling', bias_init='zeros', regularizer=None, weight_decay=0) # regularizer='L2', weight_decay=0.001, scope=None
     network = tflearn.activation(network, activation='relu')
     network = tflearn.layers.conv.max_pool_2d(network, kernel_size=2) # strides=None, padding='same'
     #network = tflearn.layers.normalization.local_response_normalization(network)
 network = tflearn.layers.core.flatten(network)
-network = tflearn.layers.core.dropout(network, 0.8)
+#network = tflearn.layers.core.dropout(network, 0.8)
 #network = tflearn.layers.core.fully_connected(network, n_units=10, activation='relu') # TODO regularizer and weight decay
 network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes, bias=True, activation='softmax', weights_init='truncated_normal', bias_init='zeros', regularizer=None, weight_decay=0)
 #network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes, bias=True, weights_init='truncated_normal', bias_init='zeros', activation='softmax') # weight_decay=0.001, scope=None
@@ -68,6 +69,15 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 # in-memory
 # .h5 file extension
 # soglia di selezione fatta in base alla rilevazione sui segnali iniettati su tutti gli spettri indiscriminatamente (ottimizzare la ripulitura dei dati)
+
+# NOTE e TODO:
+# tra i miei 10 minuti di training e la settimana di traning scritta nell'articolo c'è una differenza esattamente di un fattore mille
+# poi il numero di kernel andrà ottimizzato guardando le immagini generate massimizzando il gradiente, in modo da essere sicuri di non star levando spazio a features rilevanti (come ad esempio tutte le varie combinazioni di colore)
+# vedere se si riesce ad andare sotto la soglia della peakmap, nel qual caso si può alaborare una strategia per analizzare anche i segnali continui
+# nel futuro fa estrarre alla rete anche i parametri del segnale (o farlo fare ad una rete dedicata, a valle di una pulizia ottimale del segnale)
+# nel futuro far fare la selezione degli spettri direttamente ad un sistema automatico
+# l'eventuale dropout iniziale di fatto gioca il ruolo di data augmentation
+# in futuro farlo direttamente con gli streaming di dati che escono dall'interferometro
 
 # training
 model = tflearn.DNN(network, tensorboard_verbose=0)
