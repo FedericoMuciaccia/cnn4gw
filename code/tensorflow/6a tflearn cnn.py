@@ -29,6 +29,45 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 
 # TODO mettere learning_rate, levare regolarizzatori, controllare input, mettere solo un neurone finale, mettere flatten, mettere batch_size, controllare feed_dict nell'altra rete, separare script per il preprocessing dell'input, aumentare profondità fino alla fine della memoria, provare ad aumentare il segnale (mettendolo a 1), controllare summary della rete, mettere relu, sistemare weight_decay, mettere normalizzazione al posto corretto, fare la prova in bianconero
 
+# df/dt = spindown
+# 0-order pipeline
+# Band Sample Data (BSD)
+# manuale Sergio Frasca su BSD
+# sfdb nel tempo levando il primo e l'iltimo quarto perché interallacciate
+# frame grezzi (nel tempo) (fft e poi estrarre la banda e pulire tutto)
+# libreria pubblica di LIGO lal-lalaps (Paola Laeci) (cercare eccessi di potenza per le wavelet)
+# pss_frameS.c (per leggere i frame)
+# f = 0 - 2048
+# t_FFT circa come t_coerenza (per massimizzare il SNR)
+# teamspeak + reveal.js per le slides sincronizzate
+# vidyo (video+slides+group_chat)
+# talk massimo 20 minuti
+# numero DCC messo nella presentazione (ad una conferenza)
+
+# pwd nella home
+# /home/VIRGO/muciaccia
+# software su virgo3
+# dati su virgo4 (molto spazio)
+# lcg-tools (grid) + directory speciale in virgo4 con scrittura normale
+# path logico VS path fisico
+# cartella magica: /storage/gpfs_virgo4/CW_Roma1/
+# ui01 ui02 ui03 (poco potenti)
+# referenti CNAF: Matteo Tenti, Lucia Morganti
+
+# dati Virgo 02 (C01 ?)
+# dati BSD nel tempo
+# whitening
+# limite peakmap
+# macchina con GPU
+# metodo per rigetto spettri e differenza relativa
+# atoregressivo (articolo Pia) (codice pss_sfdb.c) short_psar_rev_freq (media autoregressiva fatta dal basso verso l'alto (ps spectrum ar autoregressive rev reversal freq frequency))
+# whitening virgo
+# lunghezza scritto 100+ pagine
+# problemi col training
+# in-memory
+# .h5 file extension
+# soglia di selezione fatta in base alla rilevazione sui segnali iniettati su tutti gli spettri indiscriminatamente (ottimizzare la ripulitura dei dati)
+
 # training
 model = tflearn.DNN(network, tensorboard_verbose=0)
 model.fit({'input':train_images}, {'target':train_classes}, n_epoch=50, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
