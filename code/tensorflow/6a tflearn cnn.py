@@ -22,7 +22,7 @@ for i in range(6): # 6 convolutional block is the maximum dept with the given im
     network = tflearn.layers.conv.max_pool_2d(network, kernel_size=2) # strides=None, padding='same'
     #network = tflearn.layers.normalization.local_response_normalization(network)
 network = tflearn.layers.core.flatten(network)
-#network = tflearn.layers.core.dropout(network, 0.8)
+network = tflearn.layers.core.dropout(network, 0.8)
 #network = tflearn.layers.core.fully_connected(network, n_units=10, activation='relu') # TODO regularizer and weight decay
 network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes, bias=True, activation='softmax', weights_init='truncated_normal', bias_init='zeros', regularizer=None, weight_decay=0)
 #network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes, bias=True, weights_init='truncated_normal', bias_init='zeros', activation='softmax') # weight_decay=0.001, scope=None
@@ -71,5 +71,5 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 
 # training
 model = tflearn.DNN(network, tensorboard_verbose=0)
-model.fit({'input':train_images}, {'target':train_classes}, n_epoch=50, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
+model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
 
