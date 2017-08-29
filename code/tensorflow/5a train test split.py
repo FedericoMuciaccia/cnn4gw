@@ -9,7 +9,7 @@ dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4')
 # inject a big white shape in the signal images
 binary_classes = numpy.argmax(dataset.classes, axis=1).astype(bool)
 is_signal = binary_classes
-frequency_slice = slice(50,60)
+frequency_slice = slice(64,128) #slice(50,60)
 time_slice = slice(64,128)
 all_channels = slice(0,3)
 is_empty = numpy.equal(dataset.images[is_signal,frequency_slice,time_slice,all_channels],0)
