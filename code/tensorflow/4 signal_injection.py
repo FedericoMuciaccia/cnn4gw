@@ -194,8 +194,8 @@ def add_signal(image, signal_intensity = 10): # un segnale di 1e-5 si vede benis
 # half the dataset will be noise only
 is_noise_only = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
 has_signal = numpy.logical_not(is_noise_only)
-# half the dataset will be for validation
-is_for_validation = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
+## half the dataset will be for validation
+#is_for_validation = numpy.round(numpy.random.rand(number_of_samples)).astype(bool)
 # TODO BUG non c'è un modo più immediato per generare una sequenza di booleani casuale
 
 for i in range(number_of_samples):
@@ -323,8 +323,8 @@ classes = xarray.DataArray(data=classes,
                  dims=['sample_index', 'label'],
                  coords={'label':['noise','noise+signal']})
                               
-validation = xarray.DataArray(data=is_for_validation,
-                              dims=['sample_index'])
+#validation = xarray.DataArray(data=is_for_validation,
+#                              dims=['sample_index'])
 
 #number_of_sets = 2
 #set_flag = one_hot_encoding(is_for_validation, number_of_sets)
@@ -332,7 +332,7 @@ validation = xarray.DataArray(data=is_for_validation,
 #                 dims=['sample_index', 'sets'],
 #                 coords={'sets':['train','validation']})
 
-dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes, 'is_for_validation':validation})
+dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes}) #, 'is_for_validation':validation})
 
 dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4', format='NETCDF4')
 
