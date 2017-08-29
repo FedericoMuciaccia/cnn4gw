@@ -24,10 +24,10 @@ train_images, train_classes = sklearn.utils.shuffle(train_dataset.images, train_
 validation_images, validation_classes = sklearn.utils.shuffle(validation_dataset.images, validation_dataset.classes)
 
 
-# inject a big white square in the signal images
+# inject a big white shape in the signal images
 binary_train_classes = numpy.argmax(train_classes, axis=1).astype(bool)
 binary_validation_classes = numpy.argmax(validation_classes, axis=1).astype(bool)
-train_images[binary_train_classes,64:128,64:128,:] = 1
+train_images[binary_train_classes,50:60,64:128,:] = 1
 validation_images[binary_validation_classes,64:128,64:128,:] = 1
 
 
