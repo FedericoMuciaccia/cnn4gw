@@ -6,21 +6,7 @@ import matplotlib
 matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
 from matplotlib import pyplot
 
-
 dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4')
-
-## inject a big white shape in the signal images
-#binary_classes = numpy.argmax(dataset.classes, axis=1).astype(bool)
-#is_signal = binary_classes
-#frequency_slice = slice(50,51) #slice(64,128) #slice(50,60)
-#time_slice = slice(64,128)
-#all_channels = slice(0,3)
-#is_empty = numpy.equal(dataset.images[is_signal,frequency_slice,time_slice,all_channels],0)
-#is_not_empty = numpy.logical_not(is_empty)
-#selection = dataset.images[is_signal,frequency_slice,time_slice,all_channels]
-#selection[is_not_empty] = 1
-#dataset.images[is_signal,frequency_slice,time_slice,all_channels] = selection
-
 
 # half the dataset will be for validation
 number_of_images = len(dataset.images)
@@ -29,24 +15,18 @@ is_for_validation = xarray.DataArray(data=random_booleans, dims=['sample_index']
 train_dataset = dataset.where(numpy.logical_not(is_for_validation), drop=True)
 validation_dataset = dataset.where(is_for_validation, drop=True)
 
-#train_dataset.to_netcdf('/storage/users/Muciaccia/train_dataset.netCDF4', format='netCDF4')
-#validation_dataset.to_netcdf('/storage/users/Muciaccia/validation_dataset.netCDF4', format='netCDF4')
-
 # shuffle data # TODO farlo out-of-memory
 import sklearn.utils
 train_images, train_classes = sklearn.utils.shuffle(train_dataset.images, train_dataset.classes)
 validation_images, validation_classes = sklearn.utils.shuffle(validation_dataset.images, validation_dataset.classes)
 
-# check the dataset
+# check the dataset by plotting a signal image
 def plot_train_image(index):
     pyplot.figure(figsize=[10,10*256/148])
     pyplot.imshow(train_images[index], origin="lower", interpolation="none")
     #pyplot.show()
-    pyplot.savefig('/storage/users/Muciaccia/media/signal_amplitudes_examples/{} {}.jpg'.format(index, train_classes[index].values), dpi=300)
-# function vectorialization
-plot_train_image = numpy.frompyfunc(plot_train_image, 1, 0)
-
-# plot a signal image
+    pyplot.savefig('/storage/users/Muciaccia/media/signal_amplitudes_examples/amplitude {}.jpg'.format(train_dataset.signal_intensity), dpi=300)
+plot_train_image = numpy.frompyfunc(plot_train_image, 1, 0) # function vectorialization
 binary_classes = numpy.argmax(train_classes, axis=1) #.astype(bool)
 first_signal_index = numpy.argmax(binary_classes)
 plot_train_image(first_signal_index)
