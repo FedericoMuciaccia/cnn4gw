@@ -2,9 +2,12 @@
 import numpy
 import xarray
 
+import matplotlib
+matplotlib.use('SVG') # per poter girare lo script pure in remoto sul server, dove non c'è il server X
+from matplotlib import pyplot
+
+
 dataset = xarray.open_dataset('/storage/users/Muciaccia/images.netCDF4')
-
-
 
 ## inject a big white shape in the signal images
 #binary_classes = numpy.argmax(dataset.classes, axis=1).astype(bool)
@@ -34,23 +37,23 @@ import sklearn.utils
 train_images, train_classes = sklearn.utils.shuffle(train_dataset.images, train_dataset.classes)
 validation_images, validation_classes = sklearn.utils.shuffle(validation_dataset.images, validation_dataset.classes)
 
+# check the dataset
+def plot_train_image(index):
+    pyplot.figure(figsize=[10,10*256/148])
+    pyplot.imshow(train_images[index], origin="lower", interpolation="none")
+    #pyplot.show()
+    pyplot.savefig('/storage/users/Muciaccia/media/signal_amplitudes_examples/{} {}.jpg'.format(index, train_classes[index].values), dpi=300)
+# function vectorialization
+plot_train_image = numpy.frompyfunc(plot_train_image, 1, 0)
+
+# plot a signal image
+binary_classes = numpy.argmax(train_classes, axis=1) #.astype(bool)
+first_signal_index = numpy.argmax(binary_classes)
+plot_train_image(first_signal_index)
+
+# save data to disk
 train_images.to_netcdf('/storage/users/Muciaccia/train_images.netCDF4', format='netCDF4')
 train_classes.to_netcdf('/storage/users/Muciaccia/train_classes.netCDF4', format='netCDF4')
 validation_images.to_netcdf('/storage/users/Muciaccia/validation_images.netCDF4', format='netCDF4')
 validation_classes.to_netcdf('/storage/users/Muciaccia/validation_classes.netCDF4', format='netCDF4')
-
-
-
-exit()
-
-from matplotlib import pyplot
-
-# check the dataset
-for i in range(100):
-    pyplot.figure(figsize=[10,10*256/148])
-    pyplot.imshow(train_images[i], origin="lower", interpolation="none")
-    #pyplot.show()
-    pyplot.savefig('/storage/users/Muciaccia/media/train_examples/{} {}.jpg'.format(i, train_classes[i].values), dpi=300)
-
-
 

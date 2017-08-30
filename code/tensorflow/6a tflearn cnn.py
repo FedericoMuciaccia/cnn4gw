@@ -16,9 +16,10 @@ import tflearn
 
 # build the convolutional network
 network = tflearn.layers.core.input_data(shape=[None, height, width, channels], name='input')
-network = tflearn.layers.core.dropout(network, 0.8)
+#network = tflearn.layers.core.dropout(network, 0.8)
 for i in range(6): # 6 convolutional block is the maximum dept with the given image size
     network = tflearn.layers.conv.conv_2d(network, nb_filter=9, filter_size=3, strides=1, padding='valid', activation='linear', bias=True, weights_init='uniform_scaling', bias_init='zeros', regularizer=None, weight_decay=0) # regularizer='L2', weight_decay=0.001, scope=None
+    network = tflearn.layers.normalization.local_response_normalization(network)
     network = tflearn.activation(network, activation='relu')
     network = tflearn.layers.conv.max_pool_2d(network, kernel_size=2) # strides=None, padding='same'
     #network = tflearn.layers.normalization.local_response_normalization(network)
@@ -78,8 +79,19 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 # nel futuro far fare la selezione degli spettri direttamente ad un sistema automatico
 # l'eventuale dropout iniziale di fatto gioca il ruolo di data augmentation
 # in futuro farlo direttamente con gli streaming di dati che escono dall'interferometro
+# ogni tanto il training non ingrana per niente e bisogna spegnere e ricominciare da capo
+# valutare max_pooling VS average_pooling
+# studiare local_response_normalization
+
+
+model = tflearn.DNN(network, tensorboard_verbose=0) # 3
+
+# load pretrained weights (to start closer to the minimum)
+model.load('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
 
 # training
-model = tflearn.DNN(network, tensorboard_verbose=0)
 model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
+
+# save the model
+model.save('/storage/users/Muciaccia/models/pretraining_amplitude_2.5.tflearn')
 
