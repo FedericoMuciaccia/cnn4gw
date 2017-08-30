@@ -337,8 +337,8 @@ classes = xarray.DataArray(data=classes,
 
 dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes}, attrs={'signal_intensity':default_signal_intensity}) #, 'is_for_validation':validation})
 
-#dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4', format='NETCDF4')
-dataset.to_netcdf('/storage/users/Muciaccia/dataset_per_confronto_Hough/netCDF4/amplitude_{}.netCDF4'.format(dataset.signal_intensity), format='NETCDF4')
+dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4', format='NETCDF4')
+#dataset.to_netcdf('/storage/users/Muciaccia/confronto_Hough/netCDF4/amplitude_{}.netCDF4'.format(dataset.signal_intensity), format='NETCDF4')
 
 # TODO risolvere il problema delle strane righe orizzontali ricorrenti
 
