@@ -218,6 +218,7 @@ pyplot.plot(L_time_stability, label='LIGO Livingston', color='#208033')
 pyplot.plot(V_time_stability, label='Virgo', color='#3366ff')
 pyplot.plot(combined_time_stability, label='all detectors together', color='#404040')
 #pyplot.axhline(y=acceptable_percentage, color='green', label='acceptable level ({}%)'.format(int(acceptable_percentage*100)))
+pyplot.axhline(y=0.25, color='orange', label='acceptable level (25%)')
 pyplot.title('{} {} data stability on 1-week timescale'.format(dataset.observing_run, dataset.calibration))
 pyplot.xlabel('time') # GPS time
 pyplot.xticks(time_ticks, month_labels)
@@ -234,8 +235,6 @@ pyplot.close()
 
 
 combined_time_stability[numpy.isnan(combined_time_stability)] = 0
-
-
 
 
 number_of_time_slices = int(numpy.floor(len(combined_time_stability)/image_time_pixels))
