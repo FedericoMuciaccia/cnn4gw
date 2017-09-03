@@ -103,11 +103,11 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 model = tflearn.DNN(network, tensorboard_verbose=0) # 3
 
 # load pretrained weights (to start closer to the minimum)
-model.load('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
+#model.load('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
 
 # training
 model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
 
 # save the model
-model.save('/storage/users/Muciaccia/models/pretraining_amplitude_2.5.tflearn')
+model.save('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
 
