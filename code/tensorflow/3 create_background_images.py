@@ -148,8 +148,10 @@ hour = 60 * minute
 day = 24 * hour
 week = 7 * day
 
-default_time_scale = week # TODO
+image_time_pixels = 128 # TODO levare duplicato più in basso nel codice
+default_time_scale = image_time_pixels*dataset.FFT_lenght # 6*day #week # TODO
 
+# TODO pezzo di codice da rimuovere
 def time_pixels(time_interval):
     # time_interval is in seconds
     time_delta = dataset.FFT_lenght
@@ -233,15 +235,28 @@ pyplot.close()
 
 combined_time_stability[numpy.isnan(combined_time_stability)] = 0
 
-# TODO tassellazione provvisoria, valida in regime di bassa densità
+
+
+
+number_of_time_slices = int(numpy.floor(len(combined_time_stability)/image_time_pixels))
+cutted_combined_time_stability = combined_time_stability[0:number_of_time_slices*image_time_pixels]
+# i dati alla fine vengono esclusi in attesa di completare l'ultima immagine # TODO attenzione che si possono perdere scoperte in questo modo
+# poi in futuro inserire interlacciatura a metà o a quarti (sempre potenze di 2) e assicurare la presenza degli ultimi dati
+# TODO tassellazione provvisoria
+downsampled_combined_time_stability = cutted_combined_time_stability.reshape(number_of_time_slices, image_time_pixels).mean(axis=1)
+
+time_index_slices = numpy.array([slice(i*image_time_pixels,(i+1)*image_time_pixels) for i in range(number_of_time_slices)]) # TODO scriverlo meglio
+good_time_index_slices = time_index_slices[downsampled_combined_time_stability > 0.25] # > 25%
+
+
 
 #nan_tolerance = 0.3 # 30%
 #acceptable_percentage = 1 - nan_tolerance
 
+# tassellare temporalmente con immagini interallacciate e poi scegliere sequenzialmente i set col ranking maggiore
 
 
-
-
+# TODO pezzo di codice da rimuovere
 #minimum_acceptable_combined_density = 0.3
 # TODO migliorarlo (e farlo sui tempi invece che sugli indici)
 good_slices = []
@@ -254,11 +269,11 @@ while len(good_slices) < 2: # TODO incrementare le dimensioni del dataset
     good_slices.append(good_slice)
     combined_time_stability[good_slice] = 0
     good_index = numpy.argmax(combined_time_stability)
-
+best_slice = good_slices[1]
 
 # TODO BUG: non funziona l'immagine RGB
 fig = pyplot.figure(figsize=[7,15])
-numpy.log(dataset.whitened_spectrogram[0:256,good_slices[1],0]).plot(vmin=-10, vmax=5, cmap='gray', extend='neither', cbar_kwargs=dict(shrink=0.5))
+numpy.log(dataset.whitened_spectrogram[0:256,best_slice,0]).plot(vmin=-10, vmax=5, cmap='gray', extend='neither', cbar_kwargs=dict(shrink=0.5))
 fig.autofmt_xdate() # rotate the labels of the time ticks
 pyplot.savefig('/storage/users/Muciaccia/media/grayscale_example.jpg', dpi=300)
 # TODO ridurre le dimensioni della barra che indica la scala (sia in cicciosità che in altezza)
@@ -310,7 +325,7 @@ time_divisions = 1
 
 number_of_images = int(frequency_divisions * time_divisions) # TODO attenzione agli errori di troncamento
 
-image_time_pixels = time_pixels(default_time_scale)
+#image_time_pixels = time_pixels(default_time_scale)
 
 channels = 3 # TODO hardcoded
 
@@ -333,8 +348,9 @@ def process_time_slice(time_slice):
     c.to_netcdf('/storage/users/Muciaccia/background_RGB_images/{}.netCDF4'.format(starting_time), format='NETCDF4')
 
 
-for i in range(len(good_slices)): # ciclo for totalmente parallelizzabile
-    process_time_slice(good_slices[i])
+for good_slice in good_time_index_slices: # ciclo for totalmente parallelizzabile
+    #print(good_slice)
+    process_time_slice(good_slice)
 
 
 

@@ -73,7 +73,7 @@ def log_normalize(image):
 def plot_RGB_image(RGB_image, file_path=None, kwargs={}):
     log_image = log_normalize(RGB_image)
     # TODO se già si è log-normalizzato l'intero dataset, si può usare direttamente train_images[0,:,:,0].plot();pyplot.show()
-    pyplot.figure(figsize=[10,10*256/148]) # TODO 256x128
+    pyplot.figure(figsize=[10,10*256/128])
     fig = pyplot.imshow(log_image, origin="lower", interpolation="none", **kwargs)
     extent = fig.get_window_extent().transformed(pyplot.gcf().dpi_scale_trans.inverted()) # TODO attenzione che il formato dell'immagine non sembra quello corretto SENZA imporre prima il figsize. possibile errore di fondo?
     if file_path is not None:
@@ -141,7 +141,7 @@ pyplot.close()
 
 # con signal_intensity = 10 arrivo ad accuracy=1.0 :)
 # e poi pure 100% con 9,8,7,6,5,4. poi altissima con 99% @3, 98% @2, 92% @1)
-default_signal_intensity = 2.5
+default_signal_intensity = 10
 def add_signal(image, signal_intensity = default_signal_intensity): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
     rows, columns, channels = image.shape
     
@@ -204,6 +204,7 @@ has_signal = numpy.logical_not(is_noise_only)
 for i in range(number_of_samples):
     if has_signal[i] == True:
         add_signal(RGB_images[i])
+# TODO farlo parallelo ed out-of-memory (spezzettando il dominio)
 
 ## TODO parallelizzare/vettorializzare questo ciclo for
 #def inject_signal(images):
