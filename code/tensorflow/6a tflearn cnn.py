@@ -102,12 +102,41 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 
 model = tflearn.DNN(network, tensorboard_verbose=0) # 3
 
+class EarlyStoppingCallback(tflearn.callbacks.Callback):
+    def on_epoch_end(self, training_state):
+        if training_state.acc_value > 0.9999: # when the training accuracy is 1 the model cannot learn further
+            raise StopIteration
+
 # load pretrained weights (to start closer to the minimum)
-#model.load('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
+model.load('/storage/users/Muciaccia/models/pretraining_amplitude_5.tflearn')
 
 # training
-model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True) # run_id='tflearn_conv_net_trial'
+try:
+    model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True, callbacks=EarlyStoppingCallback()) # run_id='tflearn_conv_net_trial'
+except StopIteration:
+    print('train accuracy is 1: training finished!')
 
 # save the model
-model.save('/storage/users/Muciaccia/models/pretraining_amplitude_10.tflearn')
+model.save('/storage/users/Muciaccia/models/pretraining_amplitude_1.tflearn')
+
+# tempo pretraining con segnale a 10: 4 minuti, <30 epoche con 2500 immagini di train
+# tempo pretraining con segnale a 5: 1 minuto, <10 epoche
+
+# TODO:
+# predizioni, grafici loss e accuracy/error, confusion_matrix
+# istogrammi di classificazione (con signoide finale)
+# veto sui dati iniziali
+# iniezione distribuita in chunck per l'out-of-memory
+# iniezione di segnali veri con fft (e loro istogramma per capirne il livello)
+# script curriculum learning automatizzato (vedere model.load)
+# calcolo complessivo SNR con l'energia
+# generare corretta forma d'onda
+# log10 nei grafici
+# spettro autoregressivo nel grafico di whitening
+# mediana, 50%, 90%, 100% nel grafico dello spettro completo
+# valutare vari livelli di accuracy col classificatore finale
+# cominciare a scrivere!
+# leggere articolo
+# documentarsi su curve ROC e su local_response_normalization
+# script per fare 100 training e poter fare un grafico
 

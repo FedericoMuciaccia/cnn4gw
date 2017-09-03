@@ -141,7 +141,7 @@ pyplot.close()
 
 # con signal_intensity = 10 arrivo ad accuracy=1.0 :)
 # e poi pure 100% con 9,8,7,6,5,4. poi altissima con 99% @3, 98% @2, 92% @1)
-default_signal_intensity = 50 #10 #5 #1
+default_signal_intensity = 1 #10 #5
 def add_signal(image, signal_intensity = default_signal_intensity): # un segnale di 1e-5 si vede benissimo ad occhio nudo, con un errore sostanzialmente nullo. 1e-6 si vede ancora ma non benissimo. 0.7e-6 è l'ultimo valore per cui si riesce a vedere (veramente a stento) ad occhio nudo, poiché si trova sul picco delle gaussiane dell'istogramma dei pixel. sotto il picco non si riesce ad andare. il livello di 1e-6 mi sembra comunque inferiore alla soglia di 2.5 sigma che si mette per le peakmap, quindi comunque questo classificatore arriva sotto il loro limite di detectability. il classificatore denso NON riesce a riconosce il livello di 1e-6
     rows, columns, channels = image.shape
     
