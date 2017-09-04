@@ -75,10 +75,10 @@ def signal_waveform(t):
     # df/dt = s # linear (first order) spindown
     # f(t) = f_0 + s*t
     # ==> phi(t) = integrate_0^t{2*pi*(f_0+s*tau) d_tau}
-    # ==> phi(t) = 2*pi*(f_0*t + (1/2)*s*t^2 + C)
-    return signal_amplitude*numpy.exp(1j*2*numpy.pi*(signal_starting_frequency - (1/2)*signal_spindown*t)*t)
+    # ==> phi(t) = 2*pi*(f_0*t + (1/2)*s*t^2 + C) # TODO capire perché è necessario mettere 'modulo 2 pi'
+    return signal_amplitude*numpy.exp(1j*numpy.mod((2*numpy.pi*(signal_starting_frequency + (1/2)*signal_spindown*t)*t),2*numpy.pi))
 
-signal_amplitude = 0.1*noise_amplitude # SNR in un solo chunk di dati ? # ratio=0.1 ancora ben visibile # rapporto critico = (amp segnale - media del rumore)/deviazione standard = 1 # poi scaling con CR*sqrt(N_FFT) # N_FFT = numero di chunk temporali # rapporto critico nel piano della Hough (coi conteggi in quel piano) # calcolare quanta è l'energia trasportata dal segnale (integrale dello spettro di potenza?) (VS valore di picco della sinusoide) # energia totale (integrale) ceduta dal segnale nel rivelatore # vs SNS_su_singola_FFT # l'ampiezza della FFT diminuisce col tempo, perché ci sono meno cicli nel tempo dato che la frequenza diminuisce # procedura completamente coerente, con un'unica FFT (coerente e incoerente, con o senza sqrt(durata segnale OR t_osservazione) (vedere articolo Explorer) # signal power density
+signal_amplitude = 1*noise_amplitude # SNR in un solo chunk di dati ? # ratio=0.1 ancora ben visibile # rapporto critico = (amp segnale - media del rumore)/deviazione standard = 1 # poi scaling con CR*sqrt(N_FFT) # N_FFT = numero di chunk temporali # rapporto critico nel piano della Hough (coi conteggi in quel piano) # calcolare quanta è l'energia trasportata dal segnale (integrale dello spettro di potenza?) (VS valore di picco della sinusoide) # energia totale (integrale) ceduta dal segnale nel rivelatore # vs SNS_su_singola_FFT # l'ampiezza della FFT diminuisce col tempo, perché ci sono meno cicli nel tempo dato che la frequenza diminuisce # procedura completamente coerente, con un'unica FFT (coerente e incoerente, con o senza sqrt(durata segnale OR t_osservazione) (vedere articolo Explorer) # signal power density
 signal = signal_waveform(t)
 #signal = signal_amplitude*tf.exp(tf.complex(1.0,2*numpy.pi*(signal_starting_frequency - signal_spindown*t)*t))
 
@@ -185,12 +185,46 @@ pyplot.show()
 # iniettare nel tempo per avere tutti gli artefatti
 # ipoteticamente, dato che 128 pixel temporali corrispondono a circa 6 giorni, si potrebbe replicare l'analisi con segnali continui di 3 mesi, con 2048 pixel temporali (e ovviamente un batch-size piccolissimo)
 
+# flat cos flat top (Sergio)
+# integrale con montecarlo
+# punti del cielo e linee divergenti
+# gd->y sono i dati (struttura)
+# interlacciamento
+# documento che descrive la forma della finestra e il suo perché
+# loop fatto al contrario
+# normw = 2*sqrt(2/3) calcolato numerico o integrando simbolicamente
+
 # 
 # randn su GPU
 # out-of-core con massimo 8 GB di RAM (memoria GPU)
 
 
 
+
+
+def flat_top_cosine_edge_window(data_chunk):
+    # 'flat top cosine edge' window function (by Sergio Frasca)
+    # structure: [ascending_cosine, flat, flat, descending_cosine]
+
+    window_lenght = 8192
+    half_lenght = int(window_lenght/2)
+    quarter_lenght = int(window_lenght/4)
+    
+    index = numpy.arange(window_lenght)
+        
+    # sinusoidal part at the edges
+    factor = 0.5 - 0.5*numpy.cos(2*numpy.pi*index/half_lenght)
+    # flat part in the middle
+    factor[quarter_lenght:window_lenght-quarter_lenght] = 1
+    # TODO plottare la funzione finestra e la sua trasformata di Fourier
+    
+    # TODO attenzione all'ultimo valore:
+    # factor[8191] non è 0
+    # (perché dovrebbe esserlo invece factor[8192], ma che è fuori range)
+    
+    data_chunk = data_chunk*factor
+    
+    return data_chunk
 
 
 
