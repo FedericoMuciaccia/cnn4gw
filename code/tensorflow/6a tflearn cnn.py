@@ -22,8 +22,8 @@ import xarray
 # data loading
 train_images = xarray.open_dataarray('/storage/users/Muciaccia/train_images.netCDF4')
 train_classes = xarray.open_dataarray('/storage/users/Muciaccia/train_classes.netCDF4')
-validation_images = xarray.open_dataarray('/storage/users/Muciaccia/validation_images.netCDF4')
-validation_classes = xarray.open_dataarray('/storage/users/Muciaccia/validation_classes.netCDF4')
+test_images = xarray.open_dataarray('/storage/users/Muciaccia/test_images.netCDF4')
+test_classes = xarray.open_dataarray('/storage/users/Muciaccia/test_classes.netCDF4')
 
 number_of_train_samples, height, width, channels = train_images.shape
 number_of_train_samples, number_of_classes = train_classes.shape
@@ -112,7 +112,7 @@ model.load('/storage/users/Muciaccia/models/pretraining_amplitude_5.tflearn')
 
 # training
 try:
-    model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':validation_images}, {'target':validation_classes}), snapshot_step=100, show_metric=True, callbacks=EarlyStoppingCallback()) # run_id='tflearn_conv_net_trial'
+    model.fit({'input':train_images}, {'target':train_classes}, n_epoch=100, validation_set=({'input':test_images}, {'target':test_classes}), snapshot_step=100, show_metric=True, callbacks=EarlyStoppingCallback()) # run_id='tflearn_conv_net_trial'
 except StopIteration:
     print('train accuracy is 1: training finished!')
 

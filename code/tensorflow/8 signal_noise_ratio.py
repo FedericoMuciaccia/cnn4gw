@@ -112,12 +112,15 @@ pyplot.figure(figsize=[15,10])
 pyplot.hist2d(t, numpy.real(white_noise+signal), bins=[100,number_of_chunks])
 pyplot.show()
 
-# TODO unilatera e bilatera
+
 # TODO parallelizzare il calcolo sui vari chunks
 fft_data = numpy.array(list(map(numpy.fft.fft, chunks))).astype(numpy.complex64)
-# TODO vedere tipo di finestra
+# TODO unilatera (rfft) e bilatera (fft)
+# TODO rimettere ordine corretto nel caso complesso e shiftare lo zero
+# TODO vedere tipo di finestra e interlacciatura e normalizzazione per la potenza persa
 spectra = numpy.square(numpy.abs(fft_data)) # TODO sqrt(2) etc etc
-spectrogram = numpy.transpose(spectra)[0:256]
+# TODO normd (normalizzare sul numero di dati)
+spectrogram = numpy.transpose(spectra)[0:256] # TODO hack forse sbagliato
 whitened_spectrogram = spectrogram/numpy.median(spectrogram)
 
 # power_spectrum = FFT autocorrelazione
@@ -187,12 +190,25 @@ pyplot.show()
 
 # flat cos flat top (Sergio)
 # integrale con montecarlo
-# punti del cielo e linee divergenti
+# niente punti del cielo e linee divergenti per le varie correzioni Doppler e linee discontinue per i pattern d'antenna
+# [punto_del_cielo, frequenza_base, vari_ordini_di_spindown]
 # gd->y sono i dati (struttura)
 # interlacciamento
 # documento che descrive la forma della finestra e il suo perché
 # loop fatto al contrario
 # normw = 2*sqrt(2/3) calcolato numerico o integrando simbolicamente
+# pipeline: data_stream, trigger, denoiser, nonparametric_fit, parameter_extractor
+# chiedere simulazione reale per i pattern delle linee divergenti che si vedrebbero (Doppler + pattern d'antenna)
+# generare il segnale nel tempo con tensorflow
+# data_generator/queue per i vari file in-memory con tensorflow
+# data stream direttamete da LIGO, non dal CNAF
+# running window
+# generare segnali a parte e poi fare funzione add_signal([noise_image, signal]) che tenga conto dei buchi dell'immagine
+# usare tensorflow e SparseTensor per generare segnali in blocco
+# vedere vectorialization su tensorflow con tf.map_fn (BUG su numpy)
+# serialization on tensorflow: define a queue -> define single preprocessing -> set a batch to preprocess
+# fare istogrammi puliti con fft del segnale
+# denoiser a cui si danno in pasto add_signal(rumore,segnale) e solo segnale (eventualemte senza i buchi) come target
 
 # 
 # randn su GPU
@@ -202,11 +218,10 @@ pyplot.show()
 
 
 
-def flat_top_cosine_edge_window(data_chunk):
+def flat_top_cosine_edge_window(data_chunk, window_lenght = 8192):
     # 'flat top cosine edge' window function (by Sergio Frasca)
     # structure: [ascending_cosine, flat, flat, descending_cosine]
 
-    window_lenght = 8192
     half_lenght = int(window_lenght/2)
     quarter_lenght = int(window_lenght/4)
     
@@ -221,6 +236,71 @@ def flat_top_cosine_edge_window(data_chunk):
     # TODO attenzione all'ultimo valore:
     # factor[8191] non è 0
     # (perché dovrebbe esserlo invece factor[8192], ma che è fuori range)
+    
+    # calcolo delle normalizzazione necessaria per tenere in conto della potenza persa nella finestra
+    # area sotto la curva diviso area del rettangolo totale
+    # se facciamo una operazione di scala (tanto il rapporto è invariante) si capisce meglio
+    # rettangolo: [x da 0 a 2*pi, y da 0 a 1]
+    # area sotto il seno equivalente all'integrale del seno da 0 a pi
+    # integrate_0^pi sin(x) dx = -cos(x)|^pi_0 = 2
+    # area sotto il flat top: pi*1
+    # dunque area totale sotto la finestra = 2+pi
+    # area del rettangolo complessivo = 2*pi*1
+    # potenza persa (rapporto) = (2+pi)/2*pi = 1/pi + 1/2 = 0.818310
+    # fattore di riscalamento = 1/potenza_persa = 1.222031
+    # TODO questo cacolo è corretto? nel loro codice sembra esserci un integrale numerico sui quadrati
+    # caso coi quadrati:
+    # integrate sin^2 from 0 to pi = x/2 - (1/4)*sin(2*x) |^pi_0 = 
+    # = pi/2
+    # dunque (pi/2 + pi)/2*pi = 3/4
+    
+    pyplot.figure(figsize=[15,10])
+    pyplot.plot(factor)
+    pyplot.show()
+    
+    factor = index.copy()
+    factor[4096:8192] = 8192-index[4096:8192]
+    
+    #factor = numpy.random.randn(8192)
+    
+    x = numpy.linspace(0, 2*numpy.pi, 8192)
+    
+    noise = 0.01*numpy.random.randn(8192)
+    y1 = numpy.sin(20*x)
+    y2 = 2*numpy.sin(40*x)
+    y = y1 + y2 # + noise
+    
+    y = factor + noise
+    
+    pyplot.figure(figsize=[15,10])
+    #pyplot.plot(x, noise)
+    pyplot.plot(x, y1)
+    pyplot.plot(x, y2)
+    pyplot.plot(x, y)
+    pyplot.show()
+    
+    pyplot.figure(figsize=[15,10])
+    pyplot.plot(y)
+    pyplot.show()
+
+    window_fft = numpy.real(numpy.fft.fft(y))
+    # TODO con fft (bilatera) fare attenzione a rimettere le due metà ordinate nello spettro e a centrare tutto correttamente
+    # TODO con rfft (unilatera) attenzione alle potenze di 2
+    
+    fft = numpy.fft.fft(y)
+    dBV = 20*numpy.log(numpy.sqrt(numpy.square(numpy.abs(fft)))/8192)
+    
+    pyplot.figure(figsize=[15,10])
+    pyplot.plot(dBV)
+    pyplot.show()
+    
+    pyplot.figure(figsize=[15,10])
+    pyplot.semilogy(x, window_fft)
+    pyplot.show()
+    
+    pyplot.figure(figsize=[15,10])
+    pyplot.plot(window_fft[0:50])
+    pyplot.show()
     
     data_chunk = data_chunk*factor
     

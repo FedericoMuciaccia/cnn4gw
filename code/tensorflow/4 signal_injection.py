@@ -338,6 +338,7 @@ classes = xarray.DataArray(data=classes,
 
 dataset = xarray.Dataset(data_vars={'images':images, 'classes':classes}, attrs={'signal_intensity':default_signal_intensity}) #, 'is_for_validation':validation})
 
+# TODO cambiargli nome con uno dove si capisca che contiene anche le classi. forse 'dataset' andrebbe anche bene
 dataset.to_netcdf('/storage/users/Muciaccia/images.netCDF4', format='NETCDF4')
 #dataset.to_netcdf('/storage/users/Muciaccia/confronto_Hough/netCDF4/amplitude_{}.netCDF4'.format(dataset.signal_intensity), format='NETCDF4')
 
