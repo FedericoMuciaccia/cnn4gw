@@ -46,6 +46,8 @@ network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes
 #network = tflearn.layers.core.fully_connected(network, n_units=number_of_classes, bias=True, weights_init='truncated_normal', bias_init='zeros', activation='softmax') # weight_decay=0.001, scope=None
 network = tflearn.layers.estimator.regression(network, optimizer='adam', learning_rate=0.001, batch_size=128, loss='categorical_crossentropy', shuffle_batches=True, name='target') # metric='default', to_one_hot=False, n_classes=None, validation_monitors=None
 
+model = tflearn.DNN(network, tensorboard_verbose=0) # 3
+
 # TODO mettere solo un neurone finale, provare batch_size 64, controllare feed_dict nell'altra rete, provare ad aumentare il segnale (mettendolo a 1), controllare summary della rete, mettere normalizzazione al posto corretto, fare la prova in bianconero, controllare i valori strani di validation loss and accuracy
 
 # df/dt = spindown
@@ -99,9 +101,6 @@ network = tflearn.layers.estimator.regression(network, optimizer='adam', learnin
 # valutare max_pooling VS average_pooling
 # studiare local_response_normalization
 
-
-model = tflearn.DNN(network, tensorboard_verbose=0) # 3
-
 class EarlyStoppingCallback(tflearn.callbacks.Callback):
     def on_epoch_end(self, training_state):
         if training_state.acc_value > 0.9999: # when the training accuracy is 1 the model cannot learn further
@@ -139,4 +138,71 @@ model.save('/storage/users/Muciaccia/models/pretraining_amplitude_1.tflearn')
 # leggere articolo
 # documentarsi su curve ROC e su local_response_normalization
 # script per fare 100 training e poter fare un grafico
+
+
+
+exit()
+
+
+
+
+model.evaluate(test_images[0:1024],test_classes[0:1024], batch_size=64)
+
+tf.confusion_matrix(labels=test_classes[0:1024,1], predictions=model.predict(test_images[0:1024])[0:1024,1]).eval()
+
+# TODO BUG: non sembra possibile avere i pesi di tflearn caricati nel grafo di tensorflow
+# TODO BUG: tflearn non supporta il model.predict out-of-memory, costringendo a caricare tutto il dataset in memoria
+# TODO BUG: ci vorrebbe il parametro batch_size pure per model.predict()
+model.predict
+model.net # sembra avere i pesi non inizializzati persino dopo model.load
+
+model.net.eval(feed_dict={'input/X:0':test_images[0:64]})
+
+model.predict(test_images[0:64])
+
+sess = tf.InteractiveSession()
+sess.run(tf.global_variables_initializer())
+
+network.eval(feed_dict={'input_1/X:0':test_images[0:64]})
+
+
+
+
+
+
+import numpy
+import sklearn.metrics
+
+# TODO hack simil out-of-memory
+# TODO sulla CPU del mio laptop la predizione di un intero dataset di 5120 immagini prende un minuto circa usando tutti i core
+def predict_in_chunks(images):
+    predictions = []
+    chunk_size = 256
+    chunks = numpy.split(images, chunk_size)
+    for chunk in chunks:
+        predictions.append(model.predict(chunk))
+        # the last activation function of the network is a softmax
+        # so the predictions are the probability for the various classes
+        # they sum up to 1
+    predictions = numpy.concatenate(predictions)
+    return predictions
+
+def compute_metrics(dataset):
+    predictions = predict_in_chunks(dataset.images)
+    predicted_signal_probabilities = predictions[:,1]
+    predicted_classes = numpy.round(predicted_signal_probabilities)
+    true_classes = dataset.classes[:,1]
+    confusion_matrix = sklearn.metrics.confusion_matrix(true_classes, predicted_classes)
+    [[true_negatives,false_positives],[false_negatives,true_positives]] = [[p0t0,p1t0],[p0t1,p1t1]] = confusion_matrix
+    purity = true_positives/(true_positives + false_positives) # precision
+    efficiency = true_positives/(true_positives + false_negatives) # recall
+    return [dataset.signal_intensity, predicted_signal_probabilities, confusion_matrix, purity, efficiency]
+
+for validation_dataset in validation_datasets:
+    print(compute_metrics(validation_dataset))
+    
+
+
+
+
 

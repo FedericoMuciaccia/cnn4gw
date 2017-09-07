@@ -40,7 +40,7 @@ train_images, test_images, train_classes, test_classes = sklearn.model_selection
 #train_dataset = dataset.where(numpy.logical_not(is_for_test), drop=True)
 #test_dataset = dataset.where(is_for_test, drop=True)
 
-# shuffle data again :)
+# shuffle data again, just to be sure they are in random order :)
 train_images, train_classes = sklearn.utils.shuffle(train_images, train_classes)
 test_images, test_classes = sklearn.utils.shuffle(test_images, test_classes)
 ## shuffle data # TODO farlo out-of-memory (spezzettando i file da salvare)(con lo shuffle prima sui vari #file e poi dentro ai vari file)(anche se non è proprio maximum entropy, m#a quasi)
